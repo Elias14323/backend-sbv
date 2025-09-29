@@ -1,0 +1,6 @@
+# Repository-level .gitignore
+# Ignore environment files containing secrets
+.env
+.env.*
+
+# You may also have a project-specific .gitignore under subfolders (e.g., backend/.gitignore)

@@ -1,6 +1,7 @@
 """Database engine and session management for the application."""
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -12,6 +13,14 @@ from sqlalchemy.ext.asyncio import (
 from .config import settings
 
 
+def _build_connect_args(database_url: str) -> dict[str, Any]:
+    """Return asyncpg connect arguments when TLS is required."""
+
+    if database_url.startswith("postgresql+asyncpg://"):
+        return {"ssl": True}
+    return {}
+
+
 def _build_engine() -> AsyncEngine:
     """Create the global async SQLAlchemy engine."""
 
@@ -19,6 +28,7 @@ def _build_engine() -> AsyncEngine:
         settings.database_url,
         pool_pre_ping=True,
         echo=False,
+        connect_args=_build_connect_args(settings.database_url),
     )
 
 
