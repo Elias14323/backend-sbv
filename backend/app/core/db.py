@@ -1,8 +1,10 @@
 """Database engine and session management for the application."""
 
+import ssl
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import certifi
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -17,7 +19,10 @@ def _build_connect_args(database_url: str) -> dict[str, Any]:
     """Return asyncpg connect arguments when TLS is required."""
 
     if database_url.startswith("postgresql+asyncpg://"):
-        return {"ssl": True}
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        return {"ssl": ssl_context}
     return {}
 
 

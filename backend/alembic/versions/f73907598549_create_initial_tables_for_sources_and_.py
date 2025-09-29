@@ -1,8 +1,8 @@
 """Create initial tables for sources and articles.
 
-Revision ID: 5452e0bf9331
+Revision ID: f73907598549
 Revises:
-Create Date: 2025-09-30 00:06:55.025205
+Create Date: 2025-09-30 00:28:49.272543
 
 """
 from typing import Sequence, Union
@@ -13,11 +13,10 @@ from sqlalchemy.dialects import postgresql as pg
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '5452e0bf9331'
+revision: str = 'f73907598549'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
 
 def upgrade() -> None:
     """Upgrade schema."""
@@ -140,31 +139,27 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+
     op.drop_table("article_duplicates")
     op.drop_index("ix_articles_url_canonical", table_name="articles")
     op.drop_index("ix_articles_published_at", table_name="articles")
     op.drop_table("articles")
     op.drop_table("sources")
 
-    source_kind_enum = sa.Enum(
-        "rss",
-        "site",
-        "social",
-        "api",
-        name="source_kind",
+    bind = op.get_bind()
+    sa.Enum("exact", "near", name="article_duplicate_kind").drop(
+        bind,
+        checkfirst=True,
     )
-    trust_tier_enum = sa.Enum("A", "B", "C", name="source_trust_tier")
-    source_scope_enum = sa.Enum(
+    sa.Enum(
         "local",
         "regional",
         "national",
         "international",
         name="source_scope",
+    ).drop(bind, checkfirst=True)
+    sa.Enum("A", "B", "C", name="source_trust_tier").drop(bind, checkfirst=True)
+    sa.Enum("rss", "site", "social", "api", name="source_kind").drop(
+        bind,
+        checkfirst=True,
     )
-    duplicate_kind_enum = sa.Enum("exact", "near", name="article_duplicate_kind")
-
-    bind = op.get_bind()
-    duplicate_kind_enum.drop(bind, checkfirst=True)
-    source_scope_enum.drop(bind, checkfirst=True)
-    trust_tier_enum.drop(bind, checkfirst=True)
-    source_kind_enum.drop(bind, checkfirst=True)
