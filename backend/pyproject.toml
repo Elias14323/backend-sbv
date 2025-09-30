@@ -20,6 +20,8 @@ pydantic-settings = "^2.6"
 python-dotenv = "^1.1.1"
 psycopg2 = "^2.9.10"
 feedparser = "^6.0.12"
+trafilatura = "^2.0.0"
+simhash = "^2.1.2"
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]
