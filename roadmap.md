@@ -9,22 +9,6 @@
 - [ ] Base: **Supabase Postgres** (pgvector) — pas de Supabase Functions
 - [ ] **Mistral** pour embeddings + génération
 
-### État rapide
-
-- Migrations initiales appliquées (schéma articles/sources, embeddings, clustering).
-- Embeddings + clustering: embedding generation + clustering task implémentée et seed DB inséré.
-- API, observabilité et worker infra (Redis/Celery) : à implémenter.
-
-## Preuves et état actuel
-
-Ci-dessous les preuves (migrations, fichiers, entrées DB) pour les éléments cochés dans ce document.
-
-- Migrations appliquées : `f73907598549` (sources/articles/enums) et `22211ae2db72` (embeddings + clustering)
-- Tables visibles en base : `sources`, `articles`, `article_duplicates`, `embedding_spaces`, `article_embeddings`, `cluster_runs`, `clusters`, `article_clusters`, `alembic_version`
-- Seed : `embedding_spaces` row (id=1, name='mistral-default'), `cluster_runs` row (id=1, algo='threshold-streaming', is_active=true)
-- Clustering task implémentée : `app/workers/tasks.py` -> `embed_and_cluster_article` (kNN pgvector + assignation)
-
-
 ## 0bis) Fonctionnalités nécessaires (détaillées)
 
 **Ingestion (pragmatique)**
@@ -128,7 +112,7 @@ Ci-dessous les preuves (migrations, fichiers, entrées DB) pour les éléments c
 
 ### 3.1 Sources & santé
 
-**✅ Créée (migration `f73907598549`, table `sources`)**
+**✅ Créée (migration f73907598549)**
 
 ````sql
 create table sources (
@@ -165,7 +149,7 @@ create table sources (
 
 ### 3.2 Articles & duplication
 
-**✅ Créée (migration `f73907598549`, tables `articles`, `article_duplicates`)**
+**✅ Créée (migration f73907598549)**
 
 ```sql
 create table articles (
@@ -199,7 +183,7 @@ create index on articles (url_canonical);
 
 ### 3.3 Embeddings **multi-espaces** (A/B prêt)
 
-**✅ Créée (migration `22211ae2db72`, tables `embedding_spaces`, `article_embeddings`)** — _Note: table nommée `article_embeddings` au lieu de `article_embeddings_multi`_
+**✅ Créée (migration 22211ae2db72)** — _Note: table nommée `article_embeddings` au lieu de `article_embeddings_multi`_
 
 ```sql
 create table embedding_spaces (
@@ -224,7 +208,7 @@ create index article_embeddings_multi_vec on article_embeddings_multi using ivff
 
 ### 3.4 Clustering **versionné uniquement** + vues actives
 
-**✅ Créée (migration `22211ae2db72`, tables `cluster_runs`, `clusters`, `article_clusters`)** — _Note: vues `v_*` pas encore créées_
+**✅ Créée (migration 22211ae2db72)** — _Note: tables nommées `clusters`/`article_clusters` au lieu de `clusters_v`/`article_cluster_v`, vues pas encore créées_
 
 ```sql
 create table cluster_runs (
