@@ -683,3 +683,244 @@ async def _summarize_cluster_async(cluster_id: int) -> dict[str, Any]:
             "version": next_version,
             "cluster_id": cluster_id,
         }
+
+
+@app.task(name="tasks.calculate_trends")
+def calculate_trends() -> dict[str, Any]:
+    """
+    Calculate trending metrics for all active clusters in the last 24 hours.
+    
+    This is a synchronous Celery task that wraps an async implementation.
+    
+    Returns:
+        Dictionary with status and metrics count
+    """
+    return asyncio.run(_calculate_trends_async())
+
+
+async def _calculate_trends_async() -> dict[str, Any]:
+    """
+    Async implementation: calculate trending metrics for active clusters.
+    
+    Returns:
+        Dictionary with status, metrics_calculated count, and timestamp
+    """
+    from app.models.cluster import TrendMetric
+    from app.services.trending import calculate_acceleration, calculate_cluster_metrics
+    
+    timestamp = datetime.now(timezone.utc)
+    logger.info(f"Calculating trends at {timestamp.isoformat()}")
+    
+    async with AsyncSessionLocal() as session:
+        # 1. Get all active clusters from last 24 hours
+        twenty_four_hours_ago = timestamp - timedelta(hours=24)
+        
+        stmt = (
+            select(Cluster)
+            .join(ClusterRun, ClusterRun.id == Cluster.run_id)
+            .where(
+                ClusterRun.is_active == True,  # noqa: E712
+                Cluster.created_at >= twenty_four_hours_ago,
+            )
+        )
+        result = await session.execute(stmt)
+        clusters = list(result.scalars().all())
+        
+        if not clusters:
+            logger.warning("No active clusters found in last 24 hours")
+            return {"status": "no_clusters", "metrics_calculated": 0}
+        
+        logger.info(f"Found {len(clusters)} active clusters to analyze")
+        
+        # 2. Calculate metrics for each cluster
+        metrics_calculated = 0
+        for cluster in clusters:
+            try:
+                # Calculate basic metrics
+                metrics = await calculate_cluster_metrics(
+                    session=session,
+                    cluster_id=cluster.id,
+                    run_id=cluster.run_id,
+                    timestamp=timestamp,
+                )
+                
+                # Calculate acceleration
+                acceleration = await calculate_acceleration(
+                    session=session,
+                    cluster_id=cluster.id,
+                    run_id=cluster.run_id,
+                    current_velocity=metrics["velocity"],
+                    timestamp=timestamp,
+                )
+                
+                # Create TrendMetric record
+                trend_metric = TrendMetric(
+                    ts=timestamp,
+                    cluster_id=cluster.id,
+                    run_id=cluster.run_id,
+                    doc_count=metrics["doc_count"],
+                    unique_sources=metrics["unique_sources"],
+                    velocity=metrics["velocity"],
+                    acceleration=acceleration,
+                    novelty=metrics["novelty"],
+                    locality=None,  # Not implemented yet
+                )
+                
+                session.add(trend_metric)
+                metrics_calculated += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to calculate metrics for cluster {cluster.id}: {e}")
+                continue
+        
+        await session.commit()
+        
+        logger.info(f"Calculated metrics for {metrics_calculated} clusters")
+        
+        return {
+            "status": "success",
+            "metrics_calculated": metrics_calculated,
+            "timestamp": timestamp.isoformat(),
+        }
+
+
+@app.task(name="tasks.detect_events")
+def detect_events() -> dict[str, Any]:
+    """
+    Detect trending events from recent metrics and publish to Redis.
+    
+    This is a synchronous Celery task that wraps an async implementation.
+    
+    Returns:
+        Dictionary with status and events detected count
+    """
+    return asyncio.run(_detect_events_async())
+
+
+async def _detect_events_async() -> dict[str, Any]:
+    """
+    Async implementation: detect events and publish to Redis.
+    
+    Returns:
+        Dictionary with status and events_detected count
+    """
+    import redis
+    from app.models.cluster import Event, TrendMetric
+    from app.services.trending import detect_anomaly
+    from app.core.config import settings
+    
+    timestamp = datetime.now(timezone.utc)
+    logger.info(f"Detecting events at {timestamp.isoformat()}")
+    
+    # Initialize Redis for publishing
+    redis_client = redis.Redis.from_url(settings.redis_url)
+    
+    async with AsyncSessionLocal() as session:
+        # 1. Get most recent metrics (last hour)
+        one_hour_ago = timestamp - timedelta(hours=1)
+        
+        stmt = (
+            select(TrendMetric)
+            .where(TrendMetric.ts >= one_hour_ago)
+            .order_by(TrendMetric.ts.desc())
+        )
+        result = await session.execute(stmt)
+        recent_metrics = list(result.scalars().all())
+        
+        if not recent_metrics:
+            logger.warning("No recent metrics found")
+            return {"status": "no_metrics", "events_detected": 0}
+        
+        logger.info(f"Analyzing {len(recent_metrics)} recent metrics")
+        
+        # 2. Group by cluster and get latest for each
+        cluster_latest_metrics: dict[int, TrendMetric] = {}
+        for metric in recent_metrics:
+            if metric.cluster_id not in cluster_latest_metrics:
+                cluster_latest_metrics[metric.cluster_id] = metric
+        
+        # 3. Detect anomalies for each cluster
+        events_detected = 0
+        for cluster_id, metric in cluster_latest_metrics.items():
+            try:
+                # Check if event already exists for this cluster in last 30 minutes
+                thirty_mins_ago = timestamp - timedelta(minutes=30)
+                existing_event_result = await session.execute(
+                    select(Event)
+                    .where(
+                        Event.cluster_id == cluster_id,
+                        Event.detected_at >= thirty_mins_ago,
+                    )
+                    .limit(1)
+                )
+                existing_event = existing_event_result.scalar_one_or_none()
+                
+                if existing_event:
+                    logger.debug(f"Event already exists for cluster {cluster_id}, skipping")
+                    continue
+                
+                # Prepare metrics dict for anomaly detection
+                current_metrics = {
+                    "doc_count": metric.doc_count or 0,
+                    "unique_sources": metric.unique_sources or 0,
+                    "velocity": metric.velocity or 0.0,
+                    "acceleration": metric.acceleration or 0.0,
+                    "novelty": metric.novelty or 0.0,
+                }
+                
+                # Detect anomaly
+                is_anomaly, score, severity = await detect_anomaly(
+                    session=session,
+                    cluster_id=cluster_id,
+                    run_id=metric.run_id,
+                    current_metrics=current_metrics,
+                )
+                
+                if not is_anomaly:
+                    continue
+                
+                # Create event
+                event = Event(
+                    run_id=metric.run_id,
+                    cluster_id=cluster_id,
+                    detected_at=timestamp,
+                    score=score,
+                    severity=severity,
+                    label=f"Trending: {current_metrics['velocity']:.0f} articles/h",
+                    window_start=metric.ts - timedelta(hours=1),
+                    window_end=metric.ts,
+                )
+                
+                session.add(event)
+                await session.flush()
+                await session.refresh(event)
+                
+                # Publish to Redis
+                event_data = json.dumps({
+                    "event_id": event.id,
+                    "cluster_id": event.cluster_id,
+                    "severity": event.severity,
+                    "label": event.label,
+                    "score": event.score,
+                    "detected_at": event.detected_at.isoformat(),
+                })
+                
+                redis_client.publish("events", event_data)
+                logger.info(f"Published event {event.id} to Redis: {event.label}")
+                
+                events_detected += 1
+                
+            except Exception as e:
+                logger.error(f"Failed to detect events for cluster {cluster_id}: {e}")
+                continue
+        
+        await session.commit()
+        redis_client.close()
+        
+        logger.info(f"Detected {events_detected} events")
+        
+        return {
+            "status": "success",
+            "events_detected": events_detected,
+            "timestamp": timestamp.isoformat(),
+        }

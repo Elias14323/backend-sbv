@@ -8,7 +8,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_topics
+from app.api import routes_stream, routes_topics
 from app.core.config import settings
 
 
@@ -40,6 +40,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(routes_topics.router, prefix="/api/v1")
+app.include_router(routes_stream.router, prefix="/api/v1")
 
 
 @app.get("/")

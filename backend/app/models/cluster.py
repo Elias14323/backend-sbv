@@ -233,6 +233,71 @@ class ClusterSummary(Base):
     run: Mapped[ClusterRun] = relationship()
 
 
+class TrendMetric(Base):
+    """Stores trending metrics for clusters over time."""
+
+    __tablename__ = "trend_metrics"
+
+    ts: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        primary_key=True,
+    )
+    cluster_id: Mapped[int] = mapped_column(
+        ForeignKey("clusters.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("cluster_runs.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    doc_count: Mapped[int | None] = mapped_column(Integer)
+    unique_sources: Mapped[int | None] = mapped_column(Integer)
+    velocity: Mapped[float | None] = mapped_column(Float)
+    acceleration: Mapped[float | None] = mapped_column(Float)
+    novelty: Mapped[float | None] = mapped_column(Float)
+    locality: Mapped[float | None] = mapped_column(Float)
+
+    cluster: Mapped[Cluster] = relationship()
+    run: Mapped[ClusterRun] = relationship()
+
+
+class Event(Base):
+    """Stores detected trending events (breaking news, anomalies)."""
+
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("cluster_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    cluster_id: Mapped[int] = mapped_column(
+        ForeignKey("clusters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    severity: Mapped[str] = mapped_column(Text, nullable=False)
+    locality: Mapped[float | None] = mapped_column(Float)
+    label: Mapped[str | None] = mapped_column(Text)
+    window_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    window_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint(
+            "severity in ('low','medium','high','critical')",
+            name="ck_events_severity_valid",
+        ),
+    )
+
+    cluster: Mapped[Cluster] = relationship()
+    run: Mapped[ClusterRun] = relationship()
+
+
 __all__ = [
     "ArticleCluster",
     "ArticleEmbedding",
@@ -240,4 +305,6 @@ __all__ = [
     "ClusterRun",
     "ClusterSummary",
     "EmbeddingSpace",
+    "Event",
+    "TrendMetric",
 ]
