@@ -1,5 +1,20 @@
 # Backend Python (FastAPI + Celery) — Plan exécutable
 
+> **📅 Dernière mise à jour** : 30 Septembre 2025  
+> **🚀 État** : MVP Phase 1 complété  
+> **📊 Progression** : Étapes 0-4 terminées (voir §17)  
+> **🔗 Repo GitHub** : https://github.com/Elias14323/backend-sbv
+
+## ✅ Accomplissements récents (30/09/2025)
+
+- ✅ Pipeline d'ingestion RSS complet opérationnel
+- ✅ 19 articles ingérés, 16 embeddings, 3 clusters créés
+- ✅ API `/api/v1/topics` fonctionnelle
+- ✅ Fixes majeurs : Trafilatura 2.0, Mistral API, pgvector, event loops
+- ✅ Repo GitHub initialisé et pushé
+
+---
+
 ## 0) Objectifs
 
 - [ ] Ingestion multi-sources (RSS, APIs sociales, scraping si autorisé)
@@ -55,14 +70,14 @@
 
 ## 1) Stack de référence (Python-first)
 
-- [x] **Python** 3.13
-- [ ] **FastAPI** (API HTTP + SSE/WebSocket)
-- [x] **SQLAlchemy 2.0** (async) + **asyncpg** (connexion Supabase) + **Alembic** (migrations)
-- [ ] **Redis** (broker/queue) + **Celery** (workers + retries + DLQ)
+- [x] **Python** 3.13 ✅
+- [x] **FastAPI** (API HTTP + SSE/WebSocket) ✅ 30/09/2025
+- [x] **SQLAlchemy 2.0** (async) + **asyncpg** (PostgreSQL 14 local) + **Alembic** (migrations) ✅ 30/09/2025
+- [x] **Redis** (broker/queue) + **Celery** (workers + retries + DLQ) ✅ 30/09/2025
 - [ ] **Meilisearch** (recherche tolérante aux fautes)
-- [x] **pgvector** (similarité via cosine dans Postgres)
-- [ ] **httpx** (async HTTP), **trafilatura**/**readability-lxml** (extraction), **Playwright** (pages JS)
-- [ ] **langdetect** ou **fasttext-langdetect** (langue), **tldextract** (canonisation), **python-simhash** (near-duplicates)
+- [x] **pgvector** (similarité via cosine dans Postgres) ✅ 30/09/2025
+- [x] **httpx** (async HTTP), **trafilatura 2.0** (extraction), **Playwright** (pages JS) ✅ 30/09/2025
+- [x] **langdetect** ou **fasttext-langdetect** (langue), **tldextract** (canonisation), **python-simhash** (near-duplicates) ✅ 30/09/2025
 - [ ] **prometheus-fastapi-instrumentator** (métriques), **structlog** (logs), **OpenTelemetry** (optionnel)
 
 > Alternative queue: **Dramatiq** (Redis/Rabbit). Si vous voulez plus simple que Celery, Dramatiq est excellent.
