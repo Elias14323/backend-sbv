@@ -4,3 +4,18 @@
 .env.*
 
 # You may also have a project-specific .gitignore under subfolders (e.g., backend/.gitignore)
+
+# Editor folders
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Local env files
+.env.local
+
+# Certificates and keys
+*.crt
+*.pem
+*.key
