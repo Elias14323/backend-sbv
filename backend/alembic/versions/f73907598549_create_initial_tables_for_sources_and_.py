@@ -2,66 +2,87 @@
 
 Revision ID: f73907598549
 Revises:
-Create Date: 2025-09-30 00:28:49.272543
+Create Date: 2025-01-20 01:17:24.349893
 
 """
-from typing import Sequence, Union
+
+from typing import Sequence
 
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql as pg
 
-from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'f73907598549'
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "f73907598549"
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
 
 def upgrade() -> None:
     """Upgrade schema."""
 
-    source_kind_enum = sa.Enum(
-        "rss",
-        "site",
-        "social",
-        "api",
-        name="source_kind",
+    # Create ENUM types only if they don't exist
+    # Using raw SQL because Supabase pooler has issues with SQLAlchemy's checkfirst
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE source_kind AS ENUM ('rss', 'site', 'social', 'api');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
     )
-    trust_tier_enum = sa.Enum("A", "B", "C", name="source_trust_tier")
-    source_scope_enum = sa.Enum(
-        "local",
-        "regional",
-        "national",
-        "international",
-        name="source_scope",
+    
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE source_trust_tier AS ENUM ('A', 'B', 'C');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
     )
-    duplicate_kind_enum = sa.Enum("exact", "near", name="article_duplicate_kind")
-
-    bind = op.get_bind()
-    source_kind_enum.create(bind, checkfirst=True)
-    trust_tier_enum.create(bind, checkfirst=True)
-    source_scope_enum.create(bind, checkfirst=True)
-    duplicate_kind_enum.create(bind, checkfirst=True)
+    
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE source_scope AS ENUM ('local', 'regional', 'national', 'international');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
+    
+    op.execute(
+        """
+        DO $$ BEGIN
+            CREATE TYPE article_duplicate_kind AS ENUM ('exact', 'near');
+        EXCEPTION
+            WHEN duplicate_object THEN null;
+        END $$;
+        """
+    )
 
     op.create_table(
         "sources",
         sa.Column("id", sa.BigInteger(), primary_key=True),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("url", sa.Text(), nullable=False, unique=True),
-        sa.Column("kind", source_kind_enum, nullable=False),
+        sa.Column("kind", pg.ENUM("rss", "site", "social", "api", name="source_kind", create_type=False), nullable=False),
         sa.Column("country_code", sa.Text(), nullable=True),
         sa.Column("lang_default", sa.Text(), nullable=True),
         sa.Column(
             "trust_tier",
-            trust_tier_enum,
+            pg.ENUM("A", "B", "C", name="source_trust_tier", create_type=False),
             nullable=False,
             server_default=sa.text("'B'"),
         ),
         sa.Column("political_axis", pg.JSONB(), nullable=True),
         sa.Column(
             "scope",
-            source_scope_enum,
+            pg.ENUM("local", "regional", "national", "international", name="source_scope", create_type=False),
             nullable=False,
             server_default=sa.text("'national'"),
         ),
@@ -132,7 +153,7 @@ def upgrade() -> None:
             sa.ForeignKey("articles.id", ondelete="CASCADE"),
             nullable=False,
         ),
-        sa.Column("kind", duplicate_kind_enum, nullable=False),
+        sa.Column("kind", pg.ENUM("exact", "near", name="article_duplicate_kind", create_type=False), nullable=False),
         sa.Column("distance", sa.Integer(), nullable=True),
     )
 

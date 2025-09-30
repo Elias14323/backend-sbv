@@ -28,6 +28,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Double % for configparser interpolation syntax (% is already URL-encoded as %25 in .env)
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 
@@ -56,14 +57,16 @@ def do_run_migrations(connection: Connection) -> None:
         compare_type=True,
     )
 
+    with context.begin_transaction():
+        context.run_migrations()
+
 
 async def run_migrations_online() -> None:
     """Run migrations in 'online' mode with an async engine."""
 
     connectable: AsyncEngine = create_async_engine(
         settings.database_url,
-        poolclass=pool.NullPool,
-        connect_args=_build_connect_args(settings.database_url),
+        connect_args=_build_connect_args(),
     )
 
     async with connectable.connect() as connection:

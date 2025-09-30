@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from datetime import timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import feedparser
@@ -14,13 +14,19 @@ import httpx
 import trafilatura
 from dateutil import parser as date_parser
 from simhash import Simhash
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import AsyncSessionLocal
 from app.core.mistral import get_mistral_client
 from app.models.article import Article, Source
-from app.models.cluster import ArticleEmbedding, EmbeddingSpace
+from app.models.cluster import (
+    ArticleCluster,
+    ArticleEmbedding,
+    Cluster,
+    ClusterRun,
+    EmbeddingSpace,
+)
 
 from .celery_app import app
 
@@ -300,7 +306,7 @@ async def ingest_source(source_id: int) -> dict[str, Any]:
 
 @app.task(name="tasks.embed_and_cluster_article")
 async def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
-    """Generate an embedding for an article and schedule clustering."""
+    """Generate an embedding for an article and assign it to a cluster."""
 
     async with AsyncSessionLocal() as session:
         article = await session.get(Article, article_id)
@@ -372,11 +378,134 @@ async def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
             embedding=embedding_data,
         )
         session.add(article_embedding)
+        await session.flush()
+
+        # ========== CLUSTERING LOGIC ==========
+        
+        # 1. Get the active cluster run
+        active_run_stmt = select(ClusterRun).where(
+            ClusterRun.space_id == space_id,
+            ClusterRun.is_active == True,  # noqa: E712
+        )
+        active_run_result = await session.execute(active_run_stmt)
+        active_run = active_run_result.scalar_one_or_none()
+        
+        if active_run is None:
+            logger.warning(
+                "No active cluster run found for space",
+                extra={"space_id": space_id, "article_id": article_id},
+            )
+            await session.commit()
+            return {"status": "embedded", "space_id": space_id, "cluster_id": None}
+        
+        run_id = active_run.id
+        threshold = active_run.params.get("threshold", 0.8)
+        
+        # 2. Find nearest neighbors within the last 48 hours using pgvector cosine distance
+        window_start = datetime.now(timezone.utc) - timedelta(hours=48)
+        
+        # Raw SQL query for kNN with pgvector
+        # Uses cosine distance operator (<=>), orders by similarity (ascending distance)
+        knn_query = text("""
+            SELECT 
+                ae.article_id,
+                ae.embedding <=> :target_embedding AS distance,
+                1 - (ae.embedding <=> :target_embedding) AS similarity,
+                a.created_at
+            FROM article_embeddings ae
+            JOIN articles a ON a.id = ae.article_id
+            WHERE ae.space_id = :space_id
+              AND a.created_at >= :window_start
+              AND ae.article_id != :article_id
+            ORDER BY ae.embedding <=> :target_embedding
+            LIMIT 5
+        """)
+        
+        knn_result = await session.execute(
+            knn_query,
+            {
+                "target_embedding": embedding_data,
+                "space_id": space_id,
+                "window_start": window_start,
+                "article_id": article_id,
+            },
+        )
+        
+        neighbors = knn_result.fetchall()
+        
+        # 3. Try to assign to an existing cluster
+        assigned_cluster_id = None
+        max_similarity = 0.0
+        
+        for neighbor_id, distance, similarity, neighbor_created_at in neighbors:
+            if similarity >= threshold:
+                # Check if this neighbor belongs to a cluster in the active run
+                cluster_stmt = select(ArticleCluster.cluster_id).where(
+                    ArticleCluster.run_id == run_id,
+                    ArticleCluster.article_id == neighbor_id,
+                )
+                cluster_result = await session.execute(cluster_stmt)
+                neighbor_cluster_id = cluster_result.scalar_one_or_none()
+                
+                if neighbor_cluster_id is not None:
+                    # Found a suitable cluster
+                    assigned_cluster_id = neighbor_cluster_id
+                    max_similarity = similarity
+                    logger.info(
+                        "Assigning article to existing cluster",
+                        extra={
+                            "article_id": article_id,
+                            "cluster_id": assigned_cluster_id,
+                            "similarity": similarity,
+                            "neighbor_id": neighbor_id,
+                        },
+                    )
+                    break
+        
+        # 4. If no suitable cluster found, create a new one
+        if assigned_cluster_id is None:
+            new_cluster = Cluster(
+                run_id=run_id,
+                label=None,  # Will be generated later
+                window_start=article.created_at,
+                window_end=article.created_at,
+            )
+            session.add(new_cluster)
+            await session.flush()
+            assigned_cluster_id = new_cluster.id
+            max_similarity = 1.0  # Perfect similarity with itself
+            
+            logger.info(
+                "Created new cluster for article",
+                extra={
+                    "article_id": article_id,
+                    "cluster_id": assigned_cluster_id,
+                    "run_id": run_id,
+                },
+            )
+        
+        # 5. Create the assignment
+        assignment = ArticleCluster(
+            run_id=run_id,
+            cluster_id=assigned_cluster_id,
+            article_id=article_id,
+            similarity=max_similarity,
+        )
+        session.add(assignment)
+        
         await session.commit()
 
     logger.info(
-        "Clustering pending implementation",
-        extra={"article_id": article_id},
+        "Article embedded and clustered",
+        extra={
+            "article_id": article_id,
+            "space_id": space_id,
+            "cluster_id": assigned_cluster_id,
+        },
     )
 
-    return {"status": "embedded", "space_id": space_id}
+    return {
+        "status": "embedded_and_clustered",
+        "space_id": space_id,
+        "cluster_id": assigned_cluster_id,
+    }

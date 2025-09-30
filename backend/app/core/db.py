@@ -1,62 +1,66 @@
 """Database engine and session management for the application."""
 
+from __future__ import annotations
+
+import os
 import ssl
 from collections.abc import AsyncGenerator
+from pathlib import Path
 from typing import Any
 
-import certifi
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.config import settings
+
+
+def _build_connect_args(db_url: str | None = None) -> dict[str, Any]:
+    """Build connection arguments with a custom SSL context that trusts
+    the Supabase CA certificate.
+    
+    Args:
+        db_url: Database connection URL (optional, for compatibility)
+        
+    Returns:
+        Dictionary of connection arguments with SSL configuration
+    """
+    # Build the path to the certificate (at backend root)
+    backend_root = Path(__file__).resolve().parents[2]
+    cert_path = backend_root / "prod-ca-2021.crt"
+
+    if not cert_path.exists():
+        raise FileNotFoundError(
+            f"Le certificat SSL de Supabase 'prod-ca-2021.crt' est manquant. "
+            f"Attendu à: {cert_path}"
+        )
+
+    ssl_context = ssl.create_default_context(cafile=str(cert_path))
+    
+    # Disable prepared statement cache for Supabase Transaction Pooler compatibility
+    # (pgbouncer in transaction mode doesn't support prepared statements)
+    return {
+        "ssl": ssl_context,
+        "statement_cache_size": 0,
+    }
+
+
+async_engine = create_async_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    connect_args=_build_connect_args(),
 )
 
-from .config import settings
-
-
-def _build_connect_args(database_url: str) -> dict[str, Any]:
-    """Return asyncpg connect arguments when TLS is required."""
-
-    if database_url.startswith("postgresql+asyncpg://"):
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-        return {"ssl": ssl_context}
-    return {}
-
-
-def _build_engine() -> AsyncEngine:
-    """Create the global async SQLAlchemy engine."""
-
-    return create_async_engine(
-        settings.database_url,
-        pool_pre_ping=True,
-        echo=False,
-        connect_args=_build_connect_args(settings.database_url),
-    )
-
-
-def _build_session_factory(
-    engine: AsyncEngine,
-) -> async_sessionmaker[AsyncSession]:
-    """Create the async session factory bound to the given engine."""
-
-    return async_sessionmaker(
-        engine,
-        expire_on_commit=False,
-    )
-
-
-async_engine: AsyncEngine = _build_engine()
-AsyncSessionLocal = _build_session_factory(async_engine)
+AsyncSessionLocal = async_sessionmaker(
+    bind=async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency that yields a database session per request."""
+    """FastAPI dependency yielding an async database session."""
 
     async with AsyncSessionLocal() as session:
         yield session
 
 
-__all__ = ["async_engine", "AsyncSessionLocal", "get_db_session"]
+__all__ = ["async_engine", "AsyncSessionLocal", "get_db_session", "_build_connect_args"]
