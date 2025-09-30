@@ -158,3 +158,14 @@ TBD
 ## 👥 Contributors
 
 - Elias
+
+## 🔐 Secrets & local configuration
+
+Ne commitez jamais de fichiers contenant des secrets (par exemple `.env`, clés privées, certificats). Ce dépôt contient un fichier d'exemple `backend/.env.example` — copiez-le en `.env` localement et ne le commitez pas.
+
+Bonnes pratiques recommandées :
+- Utiliser un gestionnaire de secrets (Vault, AWS Secrets Manager, GCP Secret Manager, or similar) pour les clés en production.
+- Stocker les certificats/clefs privées en dehors du dépôt (par ex. stockage chiffré ou secrets manager) et référencer leur chemin dans la configuration.
+- Ajouter `.env`, `*.key`, `*.pem`, `*.crt` et `.vscode/` à `.gitignore` (déjà fait ici).
+
+Si vous avez besoin d'aide pour configurer un secret manager ou pour créer des scripts d'initialisation, dites-le et je peux aider.
