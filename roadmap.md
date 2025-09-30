@@ -1,13 +1,13 @@
 # Backend Python (FastAPI + Celery) — Plan exécutable
 
-> **📅 Dernière mise à jour** : 30 Septembre 2025  
-> **🚀 État** : MVP Phase 1 + Résumés IA complétés  
-> **📊 Progression** : Étapes 0-5 terminées (voir §17)  
+> **📅 Dernière mise à jour** : 1er Octobre 2025  
+> **🚀 État** : MVP Phase 1-3 complétés (Ingestion + IA + Temps réel)  
+> **📊 Progression** : Étapes 0-7 + 14 terminées (voir §17)  
 > **🔗 Repo GitHub** : https://github.com/Elias14323/backend-sbv
 
-## ✅ Accomplissements récents (30/09/2025)
+## ✅ Accomplissements récents
 
-### Phase 1 : Pipeline de base
+### Phase 1 : Pipeline de base (30/09/2025)
 - ✅ Pipeline d'ingestion RSS complet opérationnel
 - ✅ 19 articles ingérés, 16 embeddings, 3 clusters créés
 - ✅ API `/api/v1/topics` fonctionnelle
@@ -20,6 +20,15 @@
 - ✅ Tâche Celery `summarize_cluster` avec déclenchement automatique
 - ✅ API enrichie avec résumés, bias analysis et timeline
 - ✅ Test réussi : résumé de 7.4k caractères généré pour cluster de 14 articles
+
+### Phase 3 : Détection d'événements et Streaming temps réel (1er/10/2025)
+- ✅ Tables `trend_metrics` et `events` avec modèles créés
+- ✅ Service trending : calcul de vélocité, accélération, nouveauté, détection d'anomalies
+- ✅ Tâche Celery `calculate_trends` (analyse clusters actifs 24h)
+- ✅ Tâche Celery `detect_events` (détection de pics, sévérités low/medium/high/critical)
+- ✅ Endpoint SSE `/api/v1/stream/events` avec Redis Pub/Sub
+- ✅ Test end-to-end : client SSE reçoit événements en temps réel via Redis
+- ✅ Backend véritablement **vivant** : peut pousser breaking news instantanément
 
 ---
 
@@ -375,6 +384,9 @@ country_code text
 ````
 
 ### 3.7 Évènements & tendances
+
+**✅ Créées (migration 9897e6a21d7f)** — 1er Octobre 2025
+
 ```sql
 create table trend_metrics (
   ts timestamptz not null,
@@ -395,31 +407,6 @@ create table cluster_locations (
   area_id bigint references geo_areas(id) on delete cascade,
   weight real,                    -- importance dans le cluster
   primary key (run_id, cluster_id, area_id)
-);
-
-create table events (
-  id bigserial primary key,
-  run_id bigint references cluster_runs(id) on delete cascade,
-  cluster_id bigint references clusters_v(id) on delete cascade,
-  detected_at timestamptz not null default now(),
-  score real not null,
-  severity text check (severity in ('low','medium','high','critical')),
-  locality real,                  -- importance locale
-  label text,
-  window_start timestamptz,
-  window_end timestamptz
-);
-```sql
-create table trend_metrics (
-  ts timestamptz not null,
-  cluster_id bigint references clusters_v(id) on delete cascade,
-  run_id bigint references cluster_runs(id) on delete cascade,
-  doc_count int,
-  unique_sources int,
-  velocity real,
-  acceleration real,
-  novelty real,
-  primary key (ts, cluster_id, run_id)
 );
 
 create table events (
@@ -685,7 +672,7 @@ backend/
 **Endpoints principaux**
 
 - [ ] `GET /topics` : liste paginée des sujets de la **run active**; filtres: `category`, `area_id`, `country_code`, `scope`, `lang`, `bundle`, `since`.
-- [ ] `GET /topics/{id}` : résumé(s), biais, timeline, **cluster_locations**, sources, articles représentatifs.
+- [x] `GET /topics/{id}` : résumé(s), biais, timeline, **cluster_locations**, sources, articles représentatifs. **✅ Implémenté (30/09)**
 - [ ] `GET /events` : évènements triés par sévérité/date; filtres: `area_id`, `near=lat,lng&radius`, `country_code`, `category`, `lang`.
 - [ ] `GET /search` : recherche mixte avec filtres (langue, source, période, **category**, **area_id**, bundle).
 - [ ] `GET /sources` : catalogue + métriques + **catégories** + **couverture géo**.
@@ -693,7 +680,8 @@ backend/
 - [ ] `POST /user/sources` / `DELETE /user/sources/{id}` : sélection/désélection de sources.
 - [ ] `POST /user/bundles` / `DELETE /user/bundles/{id}` : abonnement bundles.
 - [ ] `POST /subscriptions` : `kind` in (`entity`,`topic`,`keyword`,`location`), payload peut référencer `area_id` ou `near`.
-- [ ] `GET /stream/topics` et `GET /stream/events` : SSE pour nouveaux sujets/évènements.
+- [x] `GET /stream/events` : SSE pour nouveaux événements. **✅ Implémenté (1er/10)**
+- [ ] `GET /stream/topics` : SSE pour nouveaux sujets.
 - [ ] `GET /health` / `GET /metrics`.
 
 **Contrats** : toujours renvoyer `run_id`, `space_id`, et si applicable une **liste d’aires géo** avec `weight`.
@@ -770,6 +758,7 @@ backend/
 
 ## 14) Temps réel (Flutter)
 
+- [x] **SSE** `/stream/events` pour événements breaking news. **✅ Implémenté (1er/10)** avec Redis Pub/Sub
 - [ ] **SSE** `/stream/topics` pour nouveaux clusters (léger, compatible mobile)
 - [ ] Option **WebSocket** pour commentaires/feedback utilisateur
 - [ ] **Cache Redis** pour `/topics` et `/topics/{id}`
@@ -850,8 +839,8 @@ backend/
 
 ### Étape 8 — API & temps réel (SSE)
 
-- [ ] **Objectifs** : endpoints `topics`, `topics/{id}`, `events`, `search`, `sources`, `bundles`; flux SSE.
-- [ ] **Livrables** : contrats JSON stables (incl. `run_id`, `space_id`, `cluster_locations`).
+- [x] **Objectifs** : endpoints `topics`, `topics/{id}`, `events`, `search`, `sources`, `bundles`; flux SSE. **✅ Partiellement (1er/10)**
+- [x] **Livrables** : contrats JSON stables (incl. `run_id`, `space_id`). **✅ `/api/v1/topics/{id}` et `/stream/events` opérationnels**
 - [ ] **Critères** : Flutter affiche liste sujets, fiche sujet (résumé/biais/timeline/sources), recherche et flux live.
 
 ### Étape 9 — Personnalisation (sources, bundles, abonnements)
