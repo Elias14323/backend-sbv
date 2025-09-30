@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -17,7 +18,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import AsyncSessionLocal
+from app.core.mistral import get_mistral_client
 from app.models.article import Article, Source
+from app.models.cluster import ArticleEmbedding, EmbeddingSpace
 
 from .celery_app import app
 
@@ -35,6 +38,30 @@ def _hamming_distance(left: int, right: int) -> int:
     """Compute the Hamming distance between two 64-bit integers."""
 
     return (left ^ right).bit_count()
+
+
+DEFAULT_EMBEDDING_SPACE = "mistral-embed"
+DEFAULT_EMBEDDING_PROVIDER = "mistral"
+DEFAULT_EMBEDDING_DIMS = 1024
+
+
+async def _get_or_create_embedding_space(session: AsyncSession) -> EmbeddingSpace:
+    stmt = select(EmbeddingSpace).where(EmbeddingSpace.name == DEFAULT_EMBEDDING_SPACE)
+    result = await session.execute(stmt)
+    space = result.scalar_one_or_none()
+    if space is not None:
+        return space
+
+    space = EmbeddingSpace(
+        name=DEFAULT_EMBEDDING_SPACE,
+        provider=DEFAULT_EMBEDDING_PROVIDER,
+        dims=DEFAULT_EMBEDDING_DIMS,
+        version="system",
+        notes="Default embedding space created automatically.",
+    )
+    session.add(space)
+    await session.flush()
+    return space
 
 
 @app.task(name="tasks.process_article_url")
@@ -190,7 +217,9 @@ async def process_article_url(url: str, source_id: int) -> dict[str, Any]:
             extra={"source_id": source_id, "url": url, "article_id": created_id},
         )
 
-        return {"status": "stored", "article_id": created_id}
+    embed_and_cluster_article.delay(article_id=created_id)
+
+    return {"status": "stored", "article_id": created_id}
 
 
 @app.task(name="tasks.ingest_source")
@@ -267,3 +296,87 @@ async def ingest_source(source_id: int) -> dict[str, Any]:
         )
 
         return {"status": "ok", "entries": len(entries)}
+
+
+@app.task(name="tasks.embed_and_cluster_article")
+async def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
+    """Generate an embedding for an article and schedule clustering."""
+
+    async with AsyncSessionLocal() as session:
+        article = await session.get(Article, article_id)
+        if article is None:
+            logger.warning(
+                "Article not found for embedding",
+                extra={"article_id": article_id},
+            )
+            return {"status": "missing"}
+
+        if not article.text_content:
+            logger.info(
+                "Article has no text content; skipping embedding",
+                extra={"article_id": article_id},
+            )
+            return {"status": "skipped", "reason": "no-text"}
+
+        space = await _get_or_create_embedding_space(session)
+        space_id = space.id
+
+        existing = await session.get(ArticleEmbedding, (space_id, article_id))
+        if existing is not None:
+            logger.info(
+                "Embedding already exists",
+                extra={"article_id": article_id, "space_id": space_id},
+            )
+            return {"status": "exists", "space_id": space.id}
+
+        summary_parts = [article.title or "", article.text_content[:2000]]
+        embedding_input = "\n\n".join(part for part in summary_parts if part).strip()
+        if not embedding_input:
+            logger.info(
+                "Embedding input empty for article",
+                extra={"article_id": article_id},
+            )
+            return {"status": "skipped", "reason": "empty-input"}
+
+        client = get_mistral_client()
+
+        try:
+            response = await asyncio.to_thread(
+                client.embeddings.create,
+                model=space.name,
+                input=[embedding_input],
+            )
+        except Exception as exc:  # pragma: no cover - network
+            logger.error(
+                "Failed to generate embedding",
+                exc_info=exc,
+                extra={"article_id": article_id, "space_id": space_id},
+            )
+            return {"status": "error", "reason": "embedding"}
+
+        embedding_data = response.data[0].embedding
+        if len(embedding_data) != space.dims:
+            logger.warning(
+                "Embedding dimension mismatch",
+                extra={
+                    "article_id": article_id,
+                    "expected_dims": space.dims,
+                    "received_dims": len(embedding_data),
+                },
+            )
+            space.dims = len(embedding_data)
+
+        article_embedding = ArticleEmbedding(
+            space_id=space_id,
+            article_id=article_id,
+            embedding=embedding_data,
+        )
+        session.add(article_embedding)
+        await session.commit()
+
+    logger.info(
+        "Clustering pending implementation",
+        extra={"article_id": article_id},
+    )
+
+    return {"status": "embedded", "space_id": space_id}

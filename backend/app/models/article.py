@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     BigInteger,
@@ -22,6 +22,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .cluster import ArticleCluster, ArticleEmbedding
 
 from .base import Base
 
@@ -144,6 +147,17 @@ class Article(Base):
         "ArticleDuplicate",
         back_populates="duplicate_of",
         foreign_keys="ArticleDuplicate.duplicate_of_id",
+    )
+    embedding_entry: Mapped["ArticleEmbedding | None"] = relationship(
+        "ArticleEmbedding",
+        back_populates="article",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+    cluster_assignments: Mapped[list["ArticleCluster"]] = relationship(
+        "ArticleCluster",
+        back_populates="article",
+        cascade="all, delete-orphan",
     )
 
 

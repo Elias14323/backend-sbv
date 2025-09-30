@@ -2,68 +2,68 @@
 
 ## 0) Objectifs
 
-* Ingestion multi-sources (RSS, APIs sociales, scraping si autorisé)
-* Regroupement par **sujet** (clustering sur embeddings)
-* **Débiaisage**: résumé factuel + analyse des angles/biais + timeline sourcée
-* API pour Flutter (+ temps réel)
-* Base: **Supabase Postgres** (pgvector) — pas de Supabase Functions
-* **Mistral** pour embeddings + génération
+- [ ] Ingestion multi-sources (RSS, APIs sociales, scraping si autorisé)
+- [ ] Regroupement par **sujet** (clustering sur embeddings)
+- [ ] **Débiaisage**: résumé factuel + analyse des angles/biais + timeline sourcée
+- [ ] API pour Flutter (+ temps réel)
+- [ ] Base: **Supabase Postgres** (pgvector) — pas de Supabase Functions
+- [ ] **Mistral** pour embeddings + génération
 
 ## 0bis) Fonctionnalités nécessaires (détaillées)
 
 **Ingestion (pragmatique)**
 
-* **MVP** : **RSS/Atom + APIs officielles** uniquement (pas de crawler autonome).
-* **Phase 2** : + **sitemaps** et **scrapers ciblés** (quelques sources prioritaires sans bon flux).
-* **Phase 3** : crawler complet (frontier, découverte de liens) si ROI avéré.
+- [ ] **MVP** : **RSS/Atom + APIs officielles** uniquement (pas de crawler autonome).
+- [ ] **Phase 2** : + **sitemaps** et **scrapers ciblés** (quelques sources prioritaires sans bon flux).
+- [ ] **Phase 3** : crawler complet (frontier, découverte de liens) si ROI avéré.
 
 **Normalisation & qualité**
 
-* Canonisation d’URL, extraction de texte, détection de langue, timezone, auteur/source, estimation de qualité (bruit, longueur utile, duplication).
-* Déduplication (hash exact + simhash) et marquage.
+- [ ] Canonisation d’URL, extraction de texte, détection de langue, timezone, auteur/source, estimation de qualité (bruit, longueur utile, duplication).
+- [ ] Déduplication (hash exact + simhash) et marquage.
 
 **Vectorisation & recherche**
 
-* Embeddings multilingues, stockage vecteur, recherche sémantique (kNN), plein‑texte tolérant aux fautes.
+- [ ] Embeddings multilingues, stockage vecteur, recherche sémantique (kNN), plein‑texte tolérant aux fautes.
 
 **Clustering par sujet**
 
-* Attribution en flux (seuil de similarité + fenêtre glissante), fusion/scission périodiques, étiquetage automatique.
+- [ ] Attribution en flux (seuil de similarité + fenêtre glissante), fusion/scission périodiques, étiquetage automatique.
 
 **Résumé & “bias breakdown”**
 
-* Résumé factuel multi‑sources, angles/biais, accords/désaccords, timeline datée, lacunes, références.
+- [ ] Résumé factuel multi‑sources, angles/biais, accords/désaccords, timeline datée, lacunes, références.
 
 **Détection d’évènements & notifications**
 
-* Volume/vélocité/accélération/novelty/locality + corroboration multi‑sources.
-* Règles d’alerte (entités, mots‑clés, zones, sévérité, quiet hours), push FCM, déduplication.
+- [ ] Volume/vélocité/accélération/novelty/locality + corroboration multi‑sources.
+- [ ] Règles d’alerte (entités, mots‑clés, zones, sévérité, quiet hours), push FCM, déduplication.
 
 **Personnalisation & UX**
 
-* Abonnements (entité/sujet/mot‑clé/lieu), favoris, feedback, préférences de langue.
+- [ ] Abonnements (entité/sujet/mot‑clé/lieu), favoris, feedback, préférences de langue.
 
 **Administration & observabilité**
 
-* Dashboards sources/queues, coûts LLM, métriques SLO, traces/logs, reprocessing.
+- [ ] Dashboards sources/queues, coûts LLM, métriques SLO, traces/logs, reprocessing.
 
 **Sécurité & conformité**
 
-* Auth, RBAC, RGPD (export/suppression), chiffrement, gestion secrets.
+- [ ] Auth, RBAC, RGPD (export/suppression), chiffrement, gestion secrets.
 
 ---
 
 ## 1) Stack de référence (Python-first)
 
-* **Python** 3.13
-* **FastAPI** (API HTTP + SSE/WebSocket)
-* **SQLAlchemy 2.0** (async) + **asyncpg** (connexion Supabase) + **Alembic** (migrations)
-* **Redis** (broker/queue) + **Celery** (workers + retries + DLQ)
-* **Meilisearch** (recherche tolérante aux fautes)
-* **pgvector** (similarité via cosine dans Postgres)
-* **httpx** (async HTTP), **trafilatura**/**readability-lxml** (extraction), **Playwright** (pages JS)
-* **langdetect** ou **fasttext-langdetect** (langue), **tldextract** (canonisation), **python-simhash** (near-duplicates)
-* **prometheus-fastapi-instrumentator** (métriques), **structlog** (logs), **OpenTelemetry** (optionnel)
+- [ ] **Python** 3.13
+- [ ] **FastAPI** (API HTTP + SSE/WebSocket)
+- [ ] **SQLAlchemy 2.0** (async) + **asyncpg** (connexion Supabase) + **Alembic** (migrations)
+- [ ] **Redis** (broker/queue) + **Celery** (workers + retries + DLQ)
+- [ ] **Meilisearch** (recherche tolérante aux fautes)
+- [ ] **pgvector** (similarité via cosine dans Postgres)
+- [ ] **httpx** (async HTTP), **trafilatura**/**readability-lxml** (extraction), **Playwright** (pages JS)
+- [ ] **langdetect** ou **fasttext-langdetect** (langue), **tldextract** (canonisation), **python-simhash** (near-duplicates)
+- [ ] **prometheus-fastapi-instrumentator** (métriques), **structlog** (logs), **OpenTelemetry** (optionnel)
 
 > Alternative queue: **Dramatiq** (Redis/Rabbit). Si vous voulez plus simple que Celery, Dramatiq est excellent.
 
@@ -77,32 +77,32 @@
                             DB write       DB write        DB write
 ```
 
-* Chaque étape = **job Celery** idempotent (clé: URL canonique).
-* **Rate limiting** par domaine, **backoff** exponentiel, **DLQ** sur échecs.
-* **Fenêtre glissante** 24–72h pour le clustering.
+- [ ] Chaque étape = **job Celery** idempotent (clé: URL canonique).
+- [ ] **Rate limiting** par domaine, **backoff** exponentiel, **DLQ** sur échecs.
+- [ ] **Fenêtre glissante** 24–72h pour le clustering.
 
 ## 2bis) Structure de fonctionnement du backend (modules & responsabilités)
 
-* **API Gateway (FastAPI)** : endpoints publics (topics, recherche, sources, abonnements), SSE/WebSocket pour temps réel, auth.
-* **Orchestrateur de jobs (Celery/Redis)** : planification, priorités, retries, DLQ, idempotence.
-* **Service Ingestion** : lecture RSS/APIs, découverte via sitemaps/liens, alimentation de la frontier.
-* **Service Fetch/Extract** : téléchargement (politeness), extraction texte/métadonnées, normalisation.
-* **Service Dédoublonnage** : hash exact, simhash, marquage et routage vers indexation si unique.
-* **Service Embeddings** : appels LLM d’embedding, stockage pgvector, index kNN.
-* **Service Clustering** : assignation en flux, fusion/scission périodiques, étiquetage.
-* **Service Résumé/Biais** : agrégation multi‑sources, génération contrôlée, stockage markdown.
-* **Service Recherche** : indexation Meilisearch, synonymes/stop‑words, filtres.
-* **Service Tendance/Évènements** : calcul métriques, bursts, corroboration.
-* **Service Notifications** : appariement règles, construction payload, envoi FCM/e‑mail, journalisation.
-* **Admin/Observabilité** : métriques, logs, traces, dashboards, outils de reprocessing.
+- [ ] **API Gateway (FastAPI)** : endpoints publics (topics, recherche, sources, abonnements), SSE/WebSocket pour temps réel, auth.
+- [ ] **Orchestrateur de jobs (Celery/Redis)** : planification, priorités, retries, DLQ, idempotence.
+- [ ] **Service Ingestion** : lecture RSS/APIs, découverte via sitemaps/liens, alimentation de la frontier.
+- [ ] **Service Fetch/Extract** : téléchargement (politeness), extraction texte/métadonnées, normalisation.
+- [ ] **Service Dédoublonnage** : hash exact, simhash, marquage et routage vers indexation si unique.
+- [ ] **Service Embeddings** : appels LLM d’embedding, stockage pgvector, index kNN.
+- [ ] **Service Clustering** : assignation en flux, fusion/scission périodiques, étiquetage.
+- [ ] **Service Résumé/Biais** : agrégation multi‑sources, génération contrôlée, stockage markdown.
+- [ ] **Service Recherche** : indexation Meilisearch, synonymes/stop‑words, filtres.
+- [ ] **Service Tendance/Évènements** : calcul métriques, bursts, corroboration.
+- [ ] **Service Notifications** : appariement règles, construction payload, envoi FCM/e‑mail, journalisation.
+- [ ] **Admin/Observabilité** : métriques, logs, traces, dashboards, outils de reprocessing.
 
 ---
 
 ## 2ter) Stratégie d’ingestion par phases (pragmatique)
 
-* **Phase 1 (MVP)** : **RSS/Atom + APIs** — focus sur clustering, résumés/biais, temps réel, recherche, notifs.
-* **Phase 2** : **Sitemaps + scrapers ciblés** — combler les sources prioritaires sans flux.
-* **Phase 3** : **Crawler autonome** — seulement si ROI/ressources, pour exhaustivité.
+- [ ] **Phase 1 (MVP)** : **RSS/Atom + APIs** — focus sur clustering, résumés/biais, temps réel, recherche, notifs.
+- [ ] **Phase 2** : **Sitemaps + scrapers ciblés** — combler les sources prioritaires sans flux.
+- [ ] **Phase 3** : **Crawler autonome** — seulement si ROI/ressources, pour exhaustivité.
 
 ---
 
@@ -621,29 +621,29 @@ backend/
 
 ## 5) Dépendances (liste, sans code)
 
-* **Runtime** : Python ≥ 3.13
-* **API** : FastAPI, Uvicorn
-* **DB/ORM** : SQLAlchemy 2.x (async), asyncpg, Alembic (migrations)
-* **Queue** : Redis, Celery (ou Dramatiq en alternative)
-* **HTTP & parsing** : httpx, trafilatura/readability‑lxml, Playwright (pages dynamiques)
-* **Langue & dédoublonnage** : détecteur de langue (langdetect/fastText), tldextract, simhash
-* **Vecteurs & recherche** : pgvector (Postgres), Meilisearch
-* **Observabilité** : structlog, Prometheus instrumentator, OpenTelemetry (optionnel)
-* **Sécurité** : libs JWT/OAuth2, gestion secrets (Vault/SM) côté infra
+- [ ] **Runtime** : Python ≥ 3.13
+- [ ] **API** : FastAPI, Uvicorn
+- [ ] **DB/ORM** : SQLAlchemy 2.x (async), asyncpg, Alembic (migrations)
+- [ ] **Queue** : Redis, Celery (ou Dramatiq en alternative)
+- [ ] **HTTP & parsing** : httpx, trafilatura/readability‑lxml, Playwright (pages dynamiques)
+- [ ] **Langue & dédoublonnage** : détecteur de langue (langdetect/fastText), tldextract, simhash
+- [ ] **Vecteurs & recherche** : pgvector (Postgres), Meilisearch
+- [ ] **Observabilité** : structlog, Prometheus instrumentator, OpenTelemetry (optionnel)
+- [ ] **Sécurité** : libs JWT/OAuth2, gestion secrets (Vault/SM) côté infra
 
 ---
 
 ## 6) Configuration & secrets (principaux paramètres)
 
-* **DATABASE_URL / SYNC_DATABASE_URL** : connexions Postgres (async/sync) vers Supabase.
-* **REDIS_URL** : broker/stockage états de jobs.
-* **MEILI_HOST / MEILI_KEY** : accès Meilisearch.
-* **MISTRAL_API_KEY** : clé API pour embeddings & génération.
-* **CLUSTER_COSINE_THRESHOLD** : seuil de similarité (ex. 0,75–0,82 selon tuning).
-* **CLUSTER_WINDOW_HOURS** : fenêtre temporelle (ex. 24–72h) pour l’assignation.
-* **CRAWL_BUDGETS** : quotas par domaine (req/min, connexions, plages).
-* **ALERT_DEFAULTS** : seuils par défaut pour la détection d’évènements/règles.
-* **TZ_DEFAULT** : Europe/Paris.
+- [ ] **DATABASE_URL / SYNC_DATABASE_URL** : connexions Postgres (async/sync) vers Supabase.
+- [ ] **REDIS_URL** : broker/stockage états de jobs.
+- [ ] **MEILI_HOST / MEILI_KEY** : accès Meilisearch.
+- [ ] **MISTRAL_API_KEY** : clé API pour embeddings & génération.
+- [ ] **CLUSTER_COSINE_THRESHOLD** : seuil de similarité (ex. 0,75–0,82 selon tuning).
+- [ ] **CLUSTER_WINDOW_HOURS** : fenêtre temporelle (ex. 24–72h) pour l’assignation.
+- [ ] **CRAWL_BUDGETS** : quotas par domaine (req/min, connexions, plages).
+- [ ] **ALERT_DEFAULTS** : seuils par défaut pour la détection d’évènements/règles.
+- [ ] **TZ_DEFAULT** : Europe/Paris.
 
 ---
 
@@ -651,17 +651,17 @@ backend/
 
 **Endpoints principaux**
 
-* `GET /topics` : liste paginée des sujets de la **run active**; filtres: `category`, `area_id`, `country_code`, `scope`, `lang`, `bundle`, `since`.
-* `GET /topics/{id}` : résumé(s), biais, timeline, **cluster_locations**, sources, articles représentatifs.
-* `GET /events` : évènements triés par sévérité/date; filtres: `area_id`, `near=lat,lng&radius`, `country_code`, `category`, `lang`.
-* `GET /search` : recherche mixte avec filtres (langue, source, période, **category**, **area_id**, bundle).
-* `GET /sources` : catalogue + métriques + **catégories** + **couverture géo**.
-* `GET /bundles` : listes politiques/thématiques et/ou géographiques (ex. *Île‑de‑France Local*).
-* `POST /user/sources` / `DELETE /user/sources/{id}` : sélection/désélection de sources.
-* `POST /user/bundles` / `DELETE /user/bundles/{id}` : abonnement bundles.
-* `POST /subscriptions` : `kind` in (`entity`,`topic`,`keyword`,`location`), payload peut référencer `area_id` ou `near`.
-* `GET /stream/topics` et `GET /stream/events` : SSE pour nouveaux sujets/évènements.
-* `GET /health` / `GET /metrics`.
+- [ ] `GET /topics` : liste paginée des sujets de la **run active**; filtres: `category`, `area_id`, `country_code`, `scope`, `lang`, `bundle`, `since`.
+- [ ] `GET /topics/{id}` : résumé(s), biais, timeline, **cluster_locations**, sources, articles représentatifs.
+- [ ] `GET /events` : évènements triés par sévérité/date; filtres: `area_id`, `near=lat,lng&radius`, `country_code`, `category`, `lang`.
+- [ ] `GET /search` : recherche mixte avec filtres (langue, source, période, **category**, **area_id**, bundle).
+- [ ] `GET /sources` : catalogue + métriques + **catégories** + **couverture géo**.
+- [ ] `GET /bundles` : listes politiques/thématiques et/ou géographiques (ex. *Île‑de‑France Local*).
+- [ ] `POST /user/sources` / `DELETE /user/sources/{id}` : sélection/désélection de sources.
+- [ ] `POST /user/bundles` / `DELETE /user/bundles/{id}` : abonnement bundles.
+- [ ] `POST /subscriptions` : `kind` in (`entity`,`topic`,`keyword`,`location`), payload peut référencer `area_id` ou `near`.
+- [ ] `GET /stream/topics` et `GET /stream/events` : SSE pour nouveaux sujets/évènements.
+- [ ] `GET /health` / `GET /metrics`.
 
 **Contrats** : toujours renvoyer `run_id`, `space_id`, et si applicable une **liste d’aires géo** avec `weight`.
 
@@ -671,20 +671,20 @@ backend/
 
 **MVP path (Phase 1)**
 
-* **ingest(source)** → lire **RSS/APIs** → nouvelles URLs → **extract**
-* **extract(page)** → texte + métadonnées + entities/places → **dedupe**
-* **dedupe(article)** → skip si doublon ; sinon **embed**
-* **embed(article)** → vecteur (espace actif) → **cluster_assign**
-* **cluster_assign(article)** → lier cluster (run active) + mettre à jour `cluster_locations`
-* **cluster_maintain()** (périodique) → fusion/scission + labels
-* **summarize(cluster)** → dossier EN + locales à la demande
-* **trend_tick()** → `trend_metrics` → **event_detect()** (global/local)
-* **notify(event)** → règles d’abonnements → push FCM
+- [ ] **ingest(source)** → lire **RSS/APIs** → nouvelles URLs → **extract**
+- [ ] **extract(page)** → texte + métadonnées + entities/places → **dedupe**
+- [ ] **dedupe(article)** → skip si doublon ; sinon **embed**
+- [ ] **embed(article)** → vecteur (espace actif) → **cluster_assign**
+- [ ] **cluster_assign(article)** → lier cluster (run active) + mettre à jour `cluster_locations`
+- [ ] **cluster_maintain()** (périodique) → fusion/scission + labels
+- [ ] **summarize(cluster)** → dossier EN + locales à la demande
+- [ ] **trend_tick()** → `trend_metrics` → **event_detect()** (global/local)
+- [ ] **notify(event)** → règles d’abonnements → push FCM
 
 **Phase 2+ (optionnel)**
 
-* Ajouter **sitemaps** dans `ingest` et **scrapers ciblés** dans `extract`.
-* Phase 3 : introduire **frontier** et tâches `crawl_fetch` dédiées.
+- [ ] Ajouter **sitemaps** dans `ingest` et **scrapers ciblés** dans `extract`.
+- [ ] Phase 3 : introduire **frontier** et tâches `crawl_fetch` dédiées.
 
 ---
 
@@ -701,9 +701,9 @@ backend/
 
 ## 10) Embeddings & stockage — pseudo‑code
 
-* **Choix figé** : **multi‑espaces** (table `article_embeddings_multi` + `embedding_spaces`) pour A/B facile, migrations et coexistence IA locale/cloud.
-* **Politique** : un **espace canonique actif** pour la production; backfill d’un nouvel espace en **shadow** avant bascule.
-* **Index** : ivfflat (cosine) avec paramétrage probes adapté au volume; compression si nécessaire.
+- [ ] **Choix figé** : **multi‑espaces** (table `article_embeddings_multi` + `embedding_spaces`) pour A/B facile, migrations et coexistence IA locale/cloud.
+- [ ] **Politique** : un **espace canonique actif** pour la production; backfill d’un nouvel espace en **shadow** avant bascule.
+- [ ] **Index** : ivfflat (cosine) avec paramétrage probes adapté au volume; compression si nécessaire.
 
 ---
 
@@ -719,47 +719,47 @@ backend/
 
 ## 12) Résumé “bias breakdown” — logique, langues & **localité**
 
-* **Canonical EN** stocké, **locales à la demande** (cache court) pour l’UX.
-* **Localité** : si `cluster_locations` fortement concentré dans un `geo_area`, inclure un **chapeau** (ex.: *Évènement principalement localisé à Marseille, FR-13*).
-* **Transparence** : URLs, séparation FAITS/ALLÉGATIONS, mention du **périmètre géo** si pertinent.
-* **Coût** : gating par taille/score/locality.
+- [ ] **Canonical EN** stocké, **locales à la demande** (cache court) pour l’UX.
+- [ ] **Localité** : si `cluster_locations` fortement concentré dans un `geo_area`, inclure un **chapeau** (ex.: *Évènement principalement localisé à Marseille, FR-13*).
+- [ ] **Transparence** : URLs, séparation FAITS/ALLÉGATIONS, mention du **périmètre géo** si pertinent.
+- [ ] **Coût** : gating par taille/score/locality.
 
 ---
 
 ## 13) Recherche — Meilisearch
 
-* Index `articles_search` avec `{ id, title, text_excerpt, lang, source, published_at }`
-* Attributs filtrables: `lang`, `source`
-* Synonymes et stop-words FR/EN
-* Backfill à l’ingestion + mises à jour
+- [ ] Index `articles_search` avec `{ id, title, text_excerpt, lang, source, published_at }`
+- [ ] Attributs filtrables: `lang`, `source`
+- [ ] Synonymes et stop-words FR/EN
+- [ ] Backfill à l’ingestion + mises à jour
 
 ---
 
 ## 14) Temps réel (Flutter)
 
-* **SSE** `/stream/topics` pour nouveaux clusters (léger, compatible mobile)
-* Option **WebSocket** pour commentaires/feedback utilisateur
-* **Cache Redis** pour `/topics` et `/topics/{id}`
+- [ ] **SSE** `/stream/topics` pour nouveaux clusters (léger, compatible mobile)
+- [ ] Option **WebSocket** pour commentaires/feedback utilisateur
+- [ ] **Cache Redis** pour `/topics` et `/topics/{id}`
 
 ---
 
 ## 15) Topologie des services (dev/prod) — sans code
 
-* **api** : FastAPI + endpoints + SSE ; dépend de Postgres, Redis, Meilisearch ; s’appuie sur `v_*_active`.
-* **worker** : exécute les jobs Celery (ingest/normalize/embed/cluster/summarize/notify/trends).
-* **beat/scheduler** : planifie tâches périodiques (frontier, tendances, reclustering, compaction index, purge rétention).
-* **redis** : broker & backend de tâches.
-* **meilisearch** : moteur plein‑texte (voir spéc §18bis).
-* **postgres (Supabase managé)** : base principale avec pgvector et vues actives.
+- [ ] **api** : FastAPI + endpoints + SSE ; dépend de Postgres, Redis, Meilisearch ; s’appuie sur `v_*_active`.
+- [ ] **worker** : exécute les jobs Celery (ingest/normalize/embed/cluster/summarize/notify/trends).
+- [ ] **beat/scheduler** : planifie tâches périodiques (frontier, tendances, reclustering, compaction index, purge rétention).
+- [ ] **redis** : broker & backend de tâches.
+- [ ] **meilisearch** : moteur plein‑texte (voir spéc §18bis).
+- [ ] **postgres (Supabase managé)** : base principale avec pgvector et vues actives.
 
 ---
 
 ## 16) Observabilité & robustesse
 
-* **Logs** JSON (structlog), **corrélation** par `article_id`/`cluster_id`
-* **Métriques**: taux d’échec par étape, latence extraction/LLM, nombre de clusters actifs, coût LLM estimé
-* **Rate limiting** par domaine (ingestion), **robots.txt** & ToS respectés
-* **RGPD**: effacement des données utilisateur (si comptes), journal d’accès, minimisation
+- [ ] **Logs** JSON (structlog), **corrélation** par `article_id`/`cluster_id`
+- [ ] **Métriques**: taux d’échec par étape, latence extraction/LLM, nombre de clusters actifs, coût LLM estimé
+- [ ] **Rate limiting** par domaine (ingestion), **robots.txt** & ToS respectés
+- [ ] **RGPD**: effacement des données utilisateur (si comptes), journal d’accès, minimisation
 
 ---
 
@@ -769,69 +769,69 @@ backend/
 
 ### Étape 0 — Cadre & environnements
 
-* **Objectifs** : bases propres, secrets, observabilité, politiques de rétention (365j).
-* **Livrables** : variables de config documentées, métriques/healthchecks, migrations initiales (tables cœur), jeu de sources seed.
-* **Critères de sortie** : métriques exposées; DB accessible; quotas LLM désactivés par défaut (feature flag).
+- [ ] **Objectifs** : bases propres, secrets, observabilité, politiques de rétention (365j).
+- [ ] **Livrables** : variables de config documentées, métriques/healthchecks, migrations initiales (tables cœur), jeu de sources seed.
+- [ ] **Critères de sortie** : métriques exposées; DB accessible; quotas LLM désactivés par défaut (feature flag).
 
 ### Étape 1 — Ingestion Phase 1 (RSS/Atom + APIs)
 
-* **Objectifs** : polling 50–200 sources FR/EN, idempotence, qualité de flux.
-* **Livrables** : sources remplies (catégories, scope, geo coverage), planification polling, file d’URLs.
-* **Critères** : ≥50 sources actives; P95 « flux→article » ≤ 2 min; taux d’erreur < 2%.
+- [ ] **Objectifs** : polling 50–200 sources FR/EN, idempotence, qualité de flux.
+- [ ] **Livrables** : sources remplies (catégories, scope, geo coverage), planification polling, file d’URLs.
+- [ ] **Critères** : ≥50 sources actives; P95 « flux→article » ≤ 2 min; taux d’erreur < 2%.
 
 ### Étape 2 — Normalisation & dédoublonnage
 
-* **Objectifs** : extraction texte fiable, canonisation URL, langue, hash + simhash.
-* **Livrables** : règles qualité (longueur utile, bruit), marquage `article_duplicates`.
-* **Critères** : >95% d’articles valides; near‑dup détectés (hamming ≤3) sur reprises d’agences.
+- [ ] **Objectifs** : extraction texte fiable, canonisation URL, langue, hash + simhash.
+- [ ] **Livrables** : règles qualité (longueur utile, bruit), marquage `article_duplicates`.
+- [ ] **Critères** : >95% d’articles valides; near‑dup détectés (hamming ≤3) sur reprises d’agences.
 
 ### Étape 3 — Embeddings & similarité (espace actif)
 
-* **Objectifs** : embeddings multilingues, stockage vecteur multi‑espaces, kNN.
-* **Livrables** : `embedding_spaces` (espace canonique), index vectoriel opérationnel.
-* **Critères** : requêtes kNN < 200 ms p95 sur fenêtre 48–72h.
+- [ ] **Objectifs** : embeddings multilingues, stockage vecteur multi‑espaces, kNN.
+- [ ] **Livrables** : `embedding_spaces` (espace canonique), index vectoriel opérationnel.
+- [ ] **Critères** : requêtes kNN < 200 ms p95 sur fenêtre 48–72h.
 
 ### Étape 4 — Clustering versionné (run active)
 
-* **Objectifs** : assignation en flux, fusion/scission périodiques, labels courts.
-* **Livrables** : `cluster_runs` active, `clusters_v`, `article_cluster_v`, vues `v_*_active`.
-* **Critères** : cohérence thématique (échantillon manuel), taille médiane de cluster raisonnable.
+- [ ] **Objectifs** : assignation en flux, fusion/scission périodiques, labels courts.
+- [ ] **Livrables** : `cluster_runs` active, `clusters_v`, `article_cluster_v`, vues `v_*_active`.
+- [ ] **Critères** : cohérence thématique (échantillon manuel), taille médiane de cluster raisonnable.
 
 ### Étape 5 — Résumé & “bias breakdown”
 
-* **Objectifs** : dossier **canonical EN** (facts vs claims, angles/biais, timeline, sources).
-* **Livrables** : `cluster_summaries_v` (EN), cache pour variantes locales à la demande.
-* **Critères** : 90% des clusters « matures » avec résumé sous 2 min.
+- [ ] **Objectifs** : dossier **canonical EN** (facts vs claims, angles/biais, timeline, sources).
+- [ ] **Livrables** : `cluster_summaries_v` (EN), cache pour variantes locales à la demande.
+- [ ] **Critères** : 90% des clusters « matures » avec résumé sous 2 min.
 
 ### Étape 6 — Recherche hybride
 
-* **Objectifs** : plein‑texte (Meili) + filtres (langue, source, période, catégorie, zone, bundle).
-* **Livrables** : index minimal aligné schéma; stratégie synonyms/stop‑words FR/EN.
-* **Critères** : latence recherche < 300 ms p95; tolérance fautes fonctionnelle.
+- [ ] **Objectifs** : plein‑texte (Meili) + filtres (langue, source, période, catégorie, zone, bundle).
+- [ ] **Livrables** : index minimal aligné schéma; stratégie synonyms/stop‑words FR/EN.
+- [ ] **Critères** : latence recherche < 300 ms p95; tolérance fautes fonctionnelle.
 
 ### Étape 7 — Tendances, évènements & notifications (push)
 
-* **Objectifs** : scores volume/velocity/acceleration/novelty/locality; détection global/local; FCM.
-* **Livrables** : `trend_metrics`, `events`, règles minimas; canal `/stream/events`.
-* **Critères** : alerte envoyée pour un évènement test en < 60 s post‑détection; dédup OK.
+- [ ] **Objectifs** : scores volume/velocity/acceleration/novelty/locality; détection global/local; FCM.
+- [ ] **Livrables** : `trend_metrics`, `events`, règles minimas; canal `/stream/events`.
+- [ ] **Critères** : alerte envoyée pour un évènement test en < 60 s post‑détection; dédup OK.
 
 ### Étape 8 — API & temps réel (SSE)
 
-* **Objectifs** : endpoints `topics`, `topics/{id}`, `events`, `search`, `sources`, `bundles`; flux SSE.
-* **Livrables** : contrats JSON stables (incl. `run_id`, `space_id`, `cluster_locations`).
-* **Critères** : Flutter affiche liste sujets, fiche sujet (résumé/biais/timeline/sources), recherche et flux live.
+- [ ] **Objectifs** : endpoints `topics`, `topics/{id}`, `events`, `search`, `sources`, `bundles`; flux SSE.
+- [ ] **Livrables** : contrats JSON stables (incl. `run_id`, `space_id`, `cluster_locations`).
+- [ ] **Critères** : Flutter affiche liste sujets, fiche sujet (résumé/biais/timeline/sources), recherche et flux live.
 
 ### Étape 9 — Personnalisation (sources, bundles, abonnements)
 
-* **Objectifs** : sélection fine et par **bord politique/thématique/géo**; subscriptions par entité/sujet/mot‑clé/zone.
-* **Livrables** : `user_sources`, `user_bundles`, `subscriptions` opérationnels.
-* **Critères** : filtres/bundles pilotent effectivement l’ingestion et les notifs.
+- [ ] **Objectifs** : sélection fine et par **bord politique/thématique/géo**; subscriptions par entité/sujet/mot‑clé/zone.
+- [ ] **Livrables** : `user_sources`, `user_bundles`, `subscriptions` opérationnels.
+- [ ] **Critères** : filtres/bundles pilotent effectivement l’ingestion et les notifs.
 
 ### Étape 10 — Observabilité & SLOs
 
-* **Objectifs** : tableaux de bord pipeline/coûts, alertes techniques, backpressure.
-* **Livrables** : métriques clés, budgets LLM, rapports rétention.
-* **Critères** : SLOs atteints (voir §29), runbook incident de base.
+- [ ] **Objectifs** : tableaux de bord pipeline/coûts, alertes techniques, backpressure.
+- [ ] **Livrables** : métriques clés, budgets LLM, rapports rétention.
+- [ ] **Critères** : SLOs atteints (voir §29), runbook incident de base.
 
 **MVP = Étapes 0 → 8 (min) ; 0 → 10 (reco).**
 
@@ -839,32 +839,32 @@ backend/
 
 ## 18) Tests & qualité
 
-* **Fixtures** HTML pour extraction; tests dorés (golden) de normalisation.
-* Tests unitaires: dédoublonnage (hash/simhash), kNN pgvector, agrégation entités, labellisation biais.
-* Tests E2E: pipeline complet, idempotence, bascule de run (shadow → active) sans downtime.
-* Tests performance: quotas crawl, latence assignation cluster, coût/rate des LLM (si activés).
+- [ ] **Fixtures** HTML pour extraction; tests dorés (golden) de normalisation.
+- [ ] Tests unitaires: dédoublonnage (hash/simhash), kNN pgvector, agrégation entités, labellisation biais.
+- [ ] Tests E2E: pipeline complet, idempotence, bascule de run (shadow → active) sans downtime.
+- [ ] Tests performance: quotas crawl, latence assignation cluster, coût/rate des LLM (si activés).
 
 ---
 
 ## 19) Notes déploiement
 
-* Docker images séparées (API vs Worker)
-* Variables d’env prod (Supabase, Mistral) via secret manager
-* Auto-migrations Alembic au boot (avec prudence)
-* Stratégie de **backfill** initial (batch embeddings + throttling)
+- [ ] Docker images séparées (API vs Worker)
+- [ ] Variables d’env prod (Supabase, Mistral) via secret manager
+- [ ] Auto-migrations Alembic au boot (avec prudence)
+- [ ] Stratégie de **backfill** initial (batch embeddings + throttling)
 
 ---
 
 ## 20) Crawl autonome (discovery + frontier)
 
-* **Seeds**: RSS/sitemaps officiels, pages "dernières actus", listes curées.
-* **Découverte**: parsing **sitemaps**, liens internes (nofollow respecté), `<link rel=canonical>`, JSON‑LD (`extruct`) pour métadonnées.
-* **Politeness**: respect **robots.txt** (cache local), `crawl-delay`, user‑agent dédié, **budget par domaine** (req/min, connexions), fenêtres horaires.
-* **Frontier** (priorité): fraîcheur source, autorité, vitesse de publication passée, nouveauté d'URL, pénalité d'erreurs.
-* **Fetch**: `HEAD` pour filtrer (type/taille), `GET` avec timeouts, détection paywall légère, fallback Playwright.
-* **Idempotence**: URL canonique + hash contenu.
-* **Internationalisation**: préférer langue FR/EN mais conserver autres langues si très corrélé au cluster.
-* **Erreurs**: backoff exponentiel, **DLQ** par type (DNS, 403, 5xx…)
+- [ ] **Seeds**: RSS/sitemaps officiels, pages "dernières actus", listes curées.
+- [ ] **Découverte**: parsing **sitemaps**, liens internes (nofollow respecté), `<link rel=canonical>`, JSON‑LD (`extruct`) pour métadonnées.
+- [ ] **Politeness**: respect **robots.txt** (cache local), `crawl-delay`, user‑agent dédié, **budget par domaine** (req/min, connexions), fenêtres horaires.
+- [ ] **Frontier** (priorité): fraîcheur source, autorité, vitesse de publication passée, nouveauté d'URL, pénalité d'erreurs.
+- [ ] **Fetch**: `HEAD` pour filtrer (type/taille), `GET` avec timeouts, détection paywall légère, fallback Playwright.
+- [ ] **Idempotence**: URL canonique + hash contenu.
+- [ ] **Internationalisation**: préférer langue FR/EN mais conserver autres langues si très corrélé au cluster.
+- [ ] **Erreurs**: backoff exponentiel, **DLQ** par type (DNS, 403, 5xx…)
 
 **Tables (extrait)**
 
@@ -890,10 +890,10 @@ create table robots_cache (
 
 **Beat (planification)**
 
-* t+60s: batch `crawl_frontier` → `crawl_fetch` (quota par domaine)
-* t+15m: refresh sitemaps & sources
-* t+15m: reclustering communautaire
-* t+5m: calcul métriques de tendance (cf. §21)
+- [ ] t+60s: batch `crawl_frontier` → `crawl_fetch` (quota par domaine)
+- [ ] t+15m: refresh sitemaps & sources
+- [ ] t+15m: reclustering communautaire
+- [ ] t+5m: calcul métriques de tendance (cf. §21)
 
 ---
 
@@ -969,68 +969,68 @@ create table alert_rules (
 
 **Bonnes pratiques**
 
-* **Quiet hours** par utilisateur, time‑zone Europe/Paris.
-* **Dédup**: ne pas renvoyer plusieurs fois le même évènement (`dedupe_key`).
-* **Escalade**: répéter uniquement si score/severity augmente significativement.
+- [ ] **Quiet hours** par utilisateur, time‑zone Europe/Paris.
+- [ ] **Dédup**: ne pas renvoyer plusieurs fois le même évènement (`dedupe_key`).
+- [ ] **Escalade**: répéter uniquement si score/severity augmente significativement.
 
 ---
 
 ## 23) Dépendances supplémentaires (crawling/évènements/notifications)
 
-* SSE côté serveur, BeautifulSoup, extruct (JSON‑LD), orjson.
-* networkx + (optionnel) algos de communautés (python‑louvain).
-* rapidfuzz (fuzzy matching d’entités), reppy (robots.txt).
-* firebase‑admin (FCM), tenacity (retries).
-* Optionnels lourds : hdbscan, scikit‑learn, PostGIS (si géo avancée).
+- [ ] SSE côté serveur, BeautifulSoup, extruct (JSON‑LD), orjson.
+- [ ] networkx + (optionnel) algos de communautés (python‑louvain).
+- [ ] rapidfuzz (fuzzy matching d’entités), reppy (robots.txt).
+- [ ] firebase‑admin (FCM), tenacity (retries).
+- [ ] Optionnels lourds : hdbscan, scikit‑learn, PostGIS (si géo avancée).
 
 ---
 
 ## 24) Sécurité, légalité, qualité
 
-* **robots.txt/ToS** stricts, liste de **sources autorisées** préférable.
-* Pas d’extraits longs d’articles payants ; conserver les **liens**.
-* **Modération**: filtrer contenus choquants (mots‑clés, classif simple) avant résumé.
-* **Transparence**: afficher sources et horodatage UTC + Europe/Paris.
-* **RGPD**: droit à l’effacement (comptes), rétention minimale des tokens FCM.
+- [ ] **robots.txt/ToS** stricts, liste de **sources autorisées** préférable.
+- [ ] Pas d’extraits longs d’articles payants ; conserver les **liens**.
+- [ ] **Modération**: filtrer contenus choquants (mots‑clés, classif simple) avant résumé.
+- [ ] **Transparence**: afficher sources et horodatage UTC + Europe/Paris.
+- [ ] **RGPD**: droit à l’effacement (comptes), rétention minimale des tokens FCM.
 
 ---
 
 ## 25) Coûts & performances (gating)
 
-* **Batch embeddings** et cache sur `text_hash`.
-* **Chunking adaptatif**: ne vectoriser que le cœur (lead + 2–3 paragraphes) pour le clustering; résumé LLM seulement si **évènement** ou **cluster mature**.
-* **Backpressure**: stop ingestion si files > seuil; prioriser sources clés.
+- [ ] **Batch embeddings** et cache sur `text_hash`.
+- [ ] **Chunking adaptatif**: ne vectoriser que le cœur (lead + 2–3 paragraphes) pour le clustering; résumé LLM seulement si **évènement** ou **cluster mature**.
+- [ ] **Backpressure**: stop ingestion si files > seuil; prioriser sources clés.
 
 ---
 
 ## 26) Scheduler (ex. périodicités — sans code)
 
-* **Chaque minute** : batch `crawl_fetch` par domaine (budgets), monitor frontier.
-* **Toutes les 5 min** : mise à jour `trend_metrics` + détection d’évènements + éventuelle notification.
-* **Toutes les 15 min** : reclustering communautaire (par run active) & refresh sitemaps/sources.
-* **Chaque heure** : compaction/optimisation Meilisearch, purge des files anciennes.
-* **Chaque jour** : purge selon rétention (cf. §29), rapports d’observabilité/coûts, rotation éventuelle des clés/API.
+- [ ] **Chaque minute** : batch `crawl_fetch` par domaine (budgets), monitor frontier.
+- [ ] **Toutes les 5 min** : mise à jour `trend_metrics` + détection d’évènements + éventuelle notification.
+- [ ] **Toutes les 15 min** : reclustering communautaire (par run active) & refresh sitemaps/sources.
+- [ ] **Chaque heure** : compaction/optimisation Meilisearch, purge des files anciennes.
+- [ ] **Chaque jour** : purge selon rétention (cf. §29), rapports d’observabilité/coûts, rotation éventuelle des clés/API.
 
 ---
 
 ## 27) Principes & choix clés (tech + multilingue)
 
-* **Architecture versionnée** : embeddings multi‑espaces + clustering par "runs" actives ⇒ A/B, rollback, migration IA locale sans casser l’API.
-* **Ingestion par phases** : MVP = RSS/APIs → Phase 2 = sitemaps/scrapers → Phase 3 = crawler complet si ROI.
-* **Simplicité avant tout** : une seule sortie **canonical EN** stockée; variantes locales **à la demande** (cache court) pour UX et coûts maîtrisés.
-* **KG light** (entités, zones) : indispensable pour filtres, abonnements par entité/lieu, et score de **localité**.
-* **Recherche hybride** : plein‑texte (Meili) + sémantique (pgvector) pour pertinence et tolérance aux fautes.
-* **Transparence & biais** : sources visibles, séparation FAITS/ALLÉGATIONS, axes politiques source + biais par article.
-* **Ops** : Celery/Redis (retries, DLQ), SLO clairs, rétention 365 jours, SSE pour temps réel.
+- [ ] **Architecture versionnée** : embeddings multi‑espaces + clustering par "runs" actives ⇒ A/B, rollback, migration IA locale sans casser l’API.
+- [ ] **Ingestion par phases** : MVP = RSS/APIs → Phase 2 = sitemaps/scrapers → Phase 3 = crawler complet si ROI.
+- [ ] **Simplicité avant tout** : une seule sortie **canonical EN** stockée; variantes locales **à la demande** (cache court) pour UX et coûts maîtrisés.
+- [ ] **KG light** (entités, zones) : indispensable pour filtres, abonnements par entité/lieu, et score de **localité**.
+- [ ] **Recherche hybride** : plein‑texte (Meili) + sémantique (pgvector) pour pertinence et tolérance aux fautes.
+- [ ] **Transparence & biais** : sources visibles, séparation FAITS/ALLÉGATIONS, axes politiques source + biais par article.
+- [ ] **Ops** : Celery/Redis (retries, DLQ), SLO clairs, rétention 365 jours, SSE pour temps réel.
 
 ## 29) Spécifications non‑fonctionnelles & **rétention**
 
-* **Rétention par défaut (365 j)** : `raw_html`, `trend_metrics`, logs, notifications; embeddings/clusters conservés jusqu’à renouvellement majeur.
-* **SLO ingestion→cluster** : P50 ≤ 2 min, P95 ≤ 5 min.
-* **SLO évènement→notification** : P50 ≤ 1 min, P95 ≤ 3 min.
-* **Disponibilité API** : ≥ 99.9%/mois.
-* **Débit cible** : 50–100 URLs/min (scalable horizontalement).
-* **Observabilité** : métriques pipeline/LLM/coûts, traces distribuées, journaux auditables.
+- [ ] **Rétention par défaut (365 j)** : `raw_html`, `trend_metrics`, logs, notifications; embeddings/clusters conservés jusqu’à renouvellement majeur.
+- [ ] **SLO ingestion→cluster** : P50 ≤ 2 min, P95 ≤ 5 min.
+- [ ] **SLO évènement→notification** : P50 ≤ 1 min, P95 ≤ 3 min.
+- [ ] **Disponibilité API** : ≥ 99.9%/mois.
+- [ ] **Débit cible** : 50–100 URLs/min (scalable horizontalement).
+- [ ] **Observabilité** : métriques pipeline/LLM/coûts, traces distribuées, journaux auditables.
 
 ## 30) Structure de fonctionnement (résumé exécutable)
 
@@ -1084,10 +1084,10 @@ create table user_context (
 
 ### 31.2 API (ajouts)
 
-* `GET/POST /user/interests` : gérer intérêts (déclarés, `must_include`, `hard_filter`, échéances).
-* `POST /user/feedback` : like/hide/save/share/open/dwell (agrégation côté backend).
-* `GET/POST /user/context` : zones de voyage/attaches (opt‑in explicite).
-* Flux : `GET /feed/for-you` (classé) ; `GET /feed/following` (déclaratif) ; `GET /feed/breaking` (sévérité).
+- [ ] `GET/POST /user/interests` : gérer intérêts (déclarés, `must_include`, `hard_filter`, échéances).
+- [ ] `POST /user/feedback` : like/hide/save/share/open/dwell (agrégation côté backend).
+- [ ] `GET/POST /user/context` : zones de voyage/attaches (opt‑in explicite).
+- [ ] Flux : `GET /feed/for-you` (classé) ; `GET /feed/following` (déclaratif) ; `GET /feed/breaking` (sévérité).
 
 ### 31.3 Politique de ranking (pseudo‑code)
 
@@ -1110,14 +1110,14 @@ CONTRAINTES:
 
 ### 31.4 UX & explications
 
-* Badges **Pourquoi je vois ça ?** (déclaré, proche géographiquement, similaire à vos likes, breaking).
-* Contrôles rapides (Masquer ce sujet, Moins de…, Plus de…)
-* Respect des préférences **déclaratives** même sans likes (Following ≠ For You).
+- [ ] Badges **Pourquoi je vois ça ?** (déclaré, proche géographiquement, similaire à vos likes, breaking).
+- [ ] Contrôles rapides (Masquer ce sujet, Moins de…, Plus de…)
+- [ ] Respect des préférences **déclaratives** même sans likes (Following ≠ For You).
 
 ### 31.5 Confidentialité & conformité
 
-* Contexte (voyages/relatives) **opt‑in** et **éditable** ; usage uniquement pour la personnalisation.
-* Export/suppression des signaux (`user_feedback`) via RGPD.
+- [ ] Contexte (voyages/relatives) **opt‑in** et **éditable** ; usage uniquement pour la personnalisation.
+- [ ] Export/suppression des signaux (`user_feedback`) via RGPD.
 
 ---
 
@@ -1131,8 +1131,8 @@ CONTRAINTES:
 
 ## 33) Scheduler (MAJ personnalis.)
 
-* **Toutes les 15 min** : mise à jour `user_vectors` pour utilisateurs actifs (incrémental).
-* **Chaque jour** : décadence des poids implicites, expiration `expires_at`, recalibrage des quotas diversité.
+- [ ] **Toutes les 15 min** : mise à jour `user_vectors` pour utilisateurs actifs (incrémental).
+- [ ] **Chaque jour** : décadence des poids implicites, expiration `expires_at`, recalibrage des quotas diversité.
 
 ---) Structure de fonctionnement (résumé exécutable)
 
@@ -1140,22 +1140,22 @@ CONTRAINTES:
 
 ---) Multilingue — design & justification
 
-* **Embeddings multilingues** : permettent le **clustering cross‑langue** (FR/EN/… sur un même sujet) sans traduction préalable.
-* **Détection de langue** : stockée au niveau article; sert à appliquer stop‑words, stemming, règles de qualité et filtres.
-* **Recherche mixte** : l’utilisateur peut chercher en FR et retrouver des sources EN via similarité sémantique (avec label FR).
-* **Résumé ciblé** : sortie LLM dans la **langue préférée** de l’utilisateur même si sources mixtes; transparence via liste d’URLs originales.
-* **NER/Géocodage** : modèles/lexiques multilingues pour entités; normalisation ISO (personnes, organisations, lieux).
-* **UI/UX** : préférence de langue, choix d’inclure/exclure langues étrangères, avertissement si la synthèse s’appuie majoritairement sur une autre langue.
+- [ ] **Embeddings multilingues** : permettent le **clustering cross‑langue** (FR/EN/… sur un même sujet) sans traduction préalable.
+- [ ] **Détection de langue** : stockée au niveau article; sert à appliquer stop‑words, stemming, règles de qualité et filtres.
+- [ ] **Recherche mixte** : l’utilisateur peut chercher en FR et retrouver des sources EN via similarité sémantique (avec label FR).
+- [ ] **Résumé ciblé** : sortie LLM dans la **langue préférée** de l’utilisateur même si sources mixtes; transparence via liste d’URLs originales.
+- [ ] **NER/Géocodage** : modèles/lexiques multilingues pour entités; normalisation ISO (personnes, organisations, lieux).
+- [ ] **UI/UX** : préférence de langue, choix d’inclure/exclure langues étrangères, avertissement si la synthèse s’appuie majoritairement sur une autre langue.
 
 ## 29) Spécifications non‑fonctionnelles (SLO cibles)
 
-* **Latence ingestion→cluster** : P50 ≤ 2 min, P95 ≤ 5 min.
-* **Latence évènement→notification** : P50 ≤ 1 min (après détection), P95 ≤ 3 min.
-* **Disponibilité API** : ≥ 99.9%/mois (hors maintenances planifiées).
-* **Débit** : 50–100 URLs/min en vitesse de croisière (scalable horizontalement).
-* **Coûts LLM** : budget mensuel borné; gating (résumé uniquement pour clusters matures/évènements).
-* **Conformité** : RGPD (données EU), chiffrement at‑rest (Postgres/Redis) et in‑transit (TLS), rotation secrets.
-* **Observabilité** : métriques clés (erreurs/latences/coûts), traces distribuées, journaux auditables.
+- [ ] **Latence ingestion→cluster** : P50 ≤ 2 min, P95 ≤ 5 min.
+- [ ] **Latence évènement→notification** : P50 ≤ 1 min (après détection), P95 ≤ 3 min.
+- [ ] **Disponibilité API** : ≥ 99.9%/mois (hors maintenances planifiées).
+- [ ] **Débit** : 50–100 URLs/min en vitesse de croisière (scalable horizontalement).
+- [ ] **Coûts LLM** : budget mensuel borné; gating (résumé uniquement pour clusters matures/évènements).
+- [ ] **Conformité** : RGPD (données EU), chiffrement at‑rest (Postgres/Redis) et in‑transit (TLS), rotation secrets.
+- [ ] **Observabilité** : métriques clés (erreurs/latences/coûts), traces distribuées, journaux auditables.
 
 ## 30) Structure de fonctionnement (résumé exécutable)
 
@@ -1169,15 +1169,15 @@ CONTRAINTES:
 
 ### Principes d’architecture
 
-* **Ports & Adapters** : définir des interfaces stables (pseudocode) :
+- [ ] **Ports & Adapters** : définir des interfaces stables (pseudocode) :
 
-  * `EmbeddingProvider.embed(text) -> vector`
-  * `Clusterer.assign(article_id) -> cluster_id`
-  * `Summarizer.summarize(cluster_id) -> {summary_md, bias_md, timeline_md}`
+  - [ ] `EmbeddingProvider.embed(text) -> vector`
+  - [ ] `Clusterer.assign(article_id) -> cluster_id`
+  - [ ] `Summarizer.summarize(cluster_id) -> {summary_md, bias_md, timeline_md}`
     Chaque implémentation (Mistral, modèle local…) est interchangeable par **feature flag**.
-* **Double écriture (shadow)** : exécuter un **nouveau provider/clusterer en parallèle** du courant; ne servir à l’app que la version active.
-* **Contrats de données versionnés** : stocker **espace d’embedding** et **run de clustering** pour tracer quelle version a produit chaque résultat.
-* **Reproductibilité** : journaliser modèle, paramètres, seed, commit git, dépendances.
+- [ ] **Double écriture (shadow)** : exécuter un **nouveau provider/clusterer en parallèle** du courant; ne servir à l’app que la version active.
+- [ ] **Contrats de données versionnés** : stocker **espace d’embedding** et **run de clustering** pour tracer quelle version a produit chaque résultat.
+- [ ] **Reproductibilité** : journaliser modèle, paramètres, seed, commit git, dépendances.
 
 ---
 
@@ -1200,11 +1200,11 @@ create table embedding_spaces (
 
 **Stockage des vecteurs — deux stratégies**
 
-* **A. Table par espace** (recommandée pour dims variées et index optimaux) :
+- [ ] **A. Table par espace** (recommandée pour dims variées et index optimaux) :
 
-  * `article_embeddings_<space_slug>(article_id, embedding vector(<dims>))`
-  * L’ID de l’espace est référencé dans la config; index ivfflat par table.
-* **B. Table unique multi‑espaces** (si dims homogènes) :
+  - [ ] `article_embeddings_<space_slug>(article_id, embedding vector(<dims>))`
+  - [ ] L’ID de l’espace est référencé dans la config; index ivfflat par table.
+- [ ] **B. Table unique multi‑espaces** (si dims homogènes) :
 
 ```sql
 create table article_embeddings_multi (
@@ -1291,25 +1291,25 @@ create table cluster_summaries_v (
 
 **Offline**
 
-* **Topic coherence** (PMI/NPMI), **purity** (si labels dispos), taille moyenne des clusters, ratio near‑dup.
-* **Cross‑lingual recall** : proportion d’articles d’autres langues rattachés correctement.
-* **Stabilité** : taux de remappage d’articles entre runs successifs.
+- [ ] **Topic coherence** (PMI/NPMI), **purity** (si labels dispos), taille moyenne des clusters, ratio near‑dup.
+- [ ] **Cross‑lingual recall** : proportion d’articles d’autres langues rattachés correctement.
+- [ ] **Stabilité** : taux de remappage d’articles entre runs successifs.
 
 **Online**
 
-* **CTR** sur notifications, **dwell time** par sujet, **feedback utile/biais**.
-* **A/B** : table `ab_tests(user_id, run_id, bucket, started_at, ended_at)`.
+- [ ] **CTR** sur notifications, **dwell time** par sujet, **feedback utile/biais**.
+- [ ] **A/B** : table `ab_tests(user_id, run_id, bucket, started_at, ended_at)`.
 
 **Jeu de vérité** (option)
 
-* Panel interne + guidelines d’annotation (mêmes sujets / pas mêmes sujets, biais perçu, exhaustivité).
+- [ ] Panel interne + guidelines d’annotation (mêmes sujets / pas mêmes sujets, biais perçu, exhaustivité).
 
 ---
 
 ## 35) Spécificités infra pour IA native
 
-* **Workers GPU dédiés** (queue `gpu`) pour embeddings/résumés locaux; batch & quantization pour réduire coût/latence.
-* **Limiteurs** : plafond QPS/TPM par modèle; backpressure sur files.
-* **Cache de features** : ne recalculer un embedding que si `text_hash` change.
-* **Observabilité IA** : temps/token, mémoire GPU, taux d’erreur modèle.
-* **Sécurité** : sandbox pour exécutables tiers, revue des licences modèles/datasets.
+- [ ] **Workers GPU dédiés** (queue `gpu`) pour embeddings/résumés locaux; batch & quantization pour réduire coût/latence.
+- [ ] **Limiteurs** : plafond QPS/TPM par modèle; backpressure sur files.
+- [ ] **Cache de features** : ne recalculer un embedding que si `text_hash` change.
+- [ ] **Observabilité IA** : temps/token, mémoire GPU, taux d’erreur modèle.
+- [ ] **Sécurité** : sandbox pour exécutables tiers, revue des licences modèles/datasets.

@@ -10,6 +10,13 @@ from .article import (
     TrustTier,
 )
 from .base import NAMING_CONVENTION, Base, metadata
+from .cluster import (
+    ArticleCluster,
+    ArticleEmbedding,
+    Cluster,
+    ClusterRun,
+    EmbeddingSpace,
+)
 
 __all__ = [
     "Article",
@@ -22,4 +29,9 @@ __all__ = [
     "SourceScope",
     "TrustTier",
     "metadata",
+    "EmbeddingSpace",
+    "ArticleEmbedding",
+    "ClusterRun",
+    "Cluster",
+    "ArticleCluster",
 ]

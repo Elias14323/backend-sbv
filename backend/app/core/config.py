@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     database_url: str
     redis_url: str
+    mistral_api_key: str
 
 
 @lru_cache(maxsize=1)
