@@ -46,11 +46,45 @@ async def ingest_source(source_id: int) -> dict[str, Any]:
             logger.warning("Source has no URL declared", extra={"source_id": source_id})
             return {"status": "invalid"}
 
-        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-            response = await client.get(source.url)
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
+                response = await client.get(source.url)
+                response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            logger.error(
+                "Timeout while fetching source feed",
+                exc_info=exc,
+                extra={"source_id": source_id, "url": source.url},
+            )
+            return {"status": "error", "reason": "timeout"}
+        except httpx.HTTPError as exc:
+            logger.error(
+                "HTTP error while fetching source feed",
+                exc_info=exc,
+                extra={"source_id": source_id, "url": source.url},
+            )
+            return {"status": "error", "reason": "http"}
 
-        feed = feedparser.parse(response.content)
+        try:
+            feed = feedparser.parse(response.content)
+        except Exception as exc:  # pragma: no cover - feedparser rarely raises
+            logger.error(
+                "Failed to parse feed content",
+                exc_info=exc,
+                extra={"source_id": source_id, "url": source.url},
+            )
+            return {"status": "error", "reason": "parse"}
+
+        if getattr(feed, "bozo", False):
+            bozo_exc = getattr(feed, "bozo_exception", None)
+            logger.warning(
+                "Feed parsing reported anomalies",
+                extra={
+                    "source_id": source_id,
+                    "url": source.url,
+                    "bozo_exception": str(bozo_exc) if bozo_exc else None,
+                },
+            )
         entries = getattr(feed, "entries", []) or []
 
         for entry in entries:
