@@ -1,17 +1,25 @@
 # Backend Python (FastAPI + Celery) — Plan exécutable
 
 > **📅 Dernière mise à jour** : 30 Septembre 2025  
-> **🚀 État** : MVP Phase 1 complété  
-> **📊 Progression** : Étapes 0-4 terminées (voir §17)  
+> **🚀 État** : MVP Phase 1 + Résumés IA complétés  
+> **📊 Progression** : Étapes 0-5 terminées (voir §17)  
 > **🔗 Repo GitHub** : https://github.com/Elias14323/backend-sbv
 
 ## ✅ Accomplissements récents (30/09/2025)
 
+### Phase 1 : Pipeline de base
 - ✅ Pipeline d'ingestion RSS complet opérationnel
 - ✅ 19 articles ingérés, 16 embeddings, 3 clusters créés
 - ✅ API `/api/v1/topics` fonctionnelle
 - ✅ Fixes majeurs : Trafilatura 2.0, Mistral API, pgvector, event loops
 - ✅ Repo GitHub initialisé et pushé
+
+### Phase 2 : Résumés et Analyse IA (30/09/2025 soir)
+- ✅ Table `cluster_summaries` avec versioning créée
+- ✅ Service de résumé avec Mistral chat completion implémenté
+- ✅ Tâche Celery `summarize_cluster` avec déclenchement automatique
+- ✅ API enrichie avec résumés, bias analysis et timeline
+- ✅ Test réussi : résumé de 7.4k caractères généré pour cluster de 14 articles
 
 ---
 
