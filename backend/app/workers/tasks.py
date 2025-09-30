@@ -11,11 +11,15 @@ from typing import Any
 
 import feedparser
 import httpx
+import nest_asyncio
 import trafilatura
 from dateutil import parser as date_parser
 from simhash import Simhash
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Apply nest_asyncio to allow nested event loops in Celery workers
+nest_asyncio.apply()
 
 from app.core.db import AsyncSessionLocal
 from app.core.mistral import get_mistral_client
@@ -305,8 +309,13 @@ async def ingest_source(source_id: int) -> dict[str, Any]:
 
 
 @app.task(name="tasks.embed_and_cluster_article")
-async def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
+def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
     """Generate an embedding for an article and assign it to a cluster."""
+    return asyncio.run(_embed_and_cluster_article_async(article_id))
+
+
+async def _embed_and_cluster_article_async(article_id: int) -> dict[str, Any]:
+    """Async implementation of embedding and clustering."""
 
     async with AsyncSessionLocal() as session:
         article = await session.get(Article, article_id)
@@ -330,55 +339,57 @@ async def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
         existing = await session.get(ArticleEmbedding, (space_id, article_id))
         if existing is not None:
             logger.info(
-                "Embedding already exists",
+                "Embedding already exists, proceeding to clustering",
                 extra={"article_id": article_id, "space_id": space_id},
             )
-            return {"status": "exists", "space_id": space.id}
+            embedding_data = existing.embedding
+            # Skip directly to clustering logic below
+        else:
+            # Generate new embedding
+            summary_parts = [article.title or "", article.text_content[:2000]]
+            embedding_input = "\n\n".join(part for part in summary_parts if part).strip()
+            if not embedding_input:
+                logger.info(
+                    "Embedding input empty for article",
+                    extra={"article_id": article_id},
+                )
+                return {"status": "skipped", "reason": "empty-input"}
 
-        summary_parts = [article.title or "", article.text_content[:2000]]
-        embedding_input = "\n\n".join(part for part in summary_parts if part).strip()
-        if not embedding_input:
-            logger.info(
-                "Embedding input empty for article",
-                extra={"article_id": article_id},
+            client = get_mistral_client()
+
+            try:
+                response = await asyncio.to_thread(
+                    client.embeddings.create,
+                    model=space.name,
+                    inputs=[embedding_input],
+                )
+            except Exception as exc:  # pragma: no cover - network
+                logger.error(
+                    "Failed to generate embedding",
+                    exc_info=exc,
+                    extra={"article_id": article_id, "space_id": space_id},
+                )
+                return {"status": "error", "reason": "embedding"}
+
+            embedding_data = response.data[0].embedding
+            if len(embedding_data) != space.dims:
+                logger.warning(
+                    "Embedding dimension mismatch",
+                    extra={
+                        "article_id": article_id,
+                        "expected_dims": space.dims,
+                        "received_dims": len(embedding_data),
+                    },
+                )
+                space.dims = len(embedding_data)
+
+            article_embedding = ArticleEmbedding(
+                space_id=space_id,
+                article_id=article_id,
+                embedding=embedding_data,
             )
-            return {"status": "skipped", "reason": "empty-input"}
-
-        client = get_mistral_client()
-
-        try:
-            response = await asyncio.to_thread(
-                client.embeddings.create,
-                model=space.name,
-                input=[embedding_input],
-            )
-        except Exception as exc:  # pragma: no cover - network
-            logger.error(
-                "Failed to generate embedding",
-                exc_info=exc,
-                extra={"article_id": article_id, "space_id": space_id},
-            )
-            return {"status": "error", "reason": "embedding"}
-
-        embedding_data = response.data[0].embedding
-        if len(embedding_data) != space.dims:
-            logger.warning(
-                "Embedding dimension mismatch",
-                extra={
-                    "article_id": article_id,
-                    "expected_dims": space.dims,
-                    "received_dims": len(embedding_data),
-                },
-            )
-            space.dims = len(embedding_data)
-
-        article_embedding = ArticleEmbedding(
-            space_id=space_id,
-            article_id=article_id,
-            embedding=embedding_data,
-        )
-        session.add(article_embedding)
-        await session.flush()
+            session.add(article_embedding)
+            await session.flush()
 
         # ========== CLUSTERING LOGIC ==========
         
@@ -409,22 +420,29 @@ async def embed_and_cluster_article(article_id: int) -> dict[str, Any]:
         knn_query = text("""
             SELECT 
                 ae.article_id,
-                ae.embedding <=> :target_embedding AS distance,
-                1 - (ae.embedding <=> :target_embedding) AS similarity,
+                ae.embedding <=> CAST(:target_embedding AS vector) AS distance,
+                1 - (ae.embedding <=> CAST(:target_embedding AS vector)) AS similarity,
                 a.created_at
             FROM article_embeddings ae
             JOIN articles a ON a.id = ae.article_id
             WHERE ae.space_id = :space_id
               AND a.created_at >= :window_start
               AND ae.article_id != :article_id
-            ORDER BY ae.embedding <=> :target_embedding
+            ORDER BY ae.embedding <=> CAST(:target_embedding AS vector)
             LIMIT 5
         """)
+        
+        # Convert embedding to pgvector format
+        if hasattr(embedding_data, 'tolist'):
+            embedding_list = embedding_data.tolist()
+        else:
+            embedding_list = embedding_data
+        embedding_str = '[' + ','.join(str(float(x)) for x in embedding_list) + ']'
         
         knn_result = await session.execute(
             knn_query,
             {
-                "target_embedding": embedding_data,
+                "target_embedding": embedding_str,
                 "space_id": space_id,
                 "window_start": window_start,
                 "article_id": article_id,

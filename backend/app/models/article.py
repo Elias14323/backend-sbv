@@ -62,23 +62,12 @@ class Source(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    kind: Mapped[SourceKind] = mapped_column(
-        Enum(SourceKind, name="source_kind"),
-        nullable=False,
-    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)  # 'rss', 'site', 'social', 'api'
     country_code: Mapped[str | None] = mapped_column(Text)
     lang_default: Mapped[str | None] = mapped_column(Text)
-    trust_tier: Mapped[TrustTier] = mapped_column(
-        Enum(TrustTier, name="source_trust_tier"),
-        nullable=False,
-        server_default=TrustTier.B.value,
-    )
+    trust_tier: Mapped[str] = mapped_column(Text, nullable=False, server_default="B")  # 'A', 'B', 'C'
     political_axis: Mapped[dict[str, float] | None] = mapped_column(JSONB)
-    scope: Mapped[SourceScope] = mapped_column(
-        Enum(SourceScope, name="source_scope"),
-        nullable=False,
-        server_default=SourceScope.NATIONAL.value,
-    )
+    scope: Mapped[str] = mapped_column(Text, nullable=False, server_default="national")  # 'local', 'regional', 'national', 'international'
     home_area_id: Mapped[int | None] = mapped_column(BigInteger)
     topics: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     last_fetch_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -140,6 +129,7 @@ class Article(Base):
     duplicate_link: Mapped["ArticleDuplicate | None"] = relationship(
         "ArticleDuplicate",
         back_populates="article",
+        foreign_keys="ArticleDuplicate.article_id",
         cascade="all, delete-orphan",
         uselist=False,
     )

@@ -24,6 +24,7 @@ trafilatura = "^2.0.0"
 simhash = "^2.1.2"
 mistralai = "^1.9.10"
 pgvector = "^0.4.1"
+nest-asyncio = "^1.6.0"
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]

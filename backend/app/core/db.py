@@ -23,7 +23,18 @@ def _build_connect_args(db_url: str | None = None) -> dict[str, Any]:
     Returns:
         Dictionary of connection arguments with SSL configuration
     """
-    # Build the path to the certificate (at backend root)
+    # Check if we're using a local database (localhost)
+    url_to_check = db_url or settings.database_url
+    if "localhost" in url_to_check or "127.0.0.1" in url_to_check:
+        # Local database - no SSL
+        return {
+            "ssl": False,
+            "statement_cache_size": 0,
+            "timeout": 10,
+            "command_timeout": 30,
+        }
+    
+    # Build the path to the certificate (at backend root) for remote DB
     backend_root = Path(__file__).resolve().parents[2]
     cert_path = backend_root / "prod-ca-2021.crt"
 
@@ -40,12 +51,17 @@ def _build_connect_args(db_url: str | None = None) -> dict[str, Any]:
     return {
         "ssl": ssl_context,
         "statement_cache_size": 0,
+        "timeout": 10,  # Connection timeout in seconds
+        "command_timeout": 30,  # Query timeout in seconds
     }
 
 
 async_engine = create_async_engine(
     settings.database_url,
     pool_pre_ping=True,
+    pool_recycle=3600,  # Recycle connections after 1 hour
+    pool_size=5,  # Limit concurrent connections
+    max_overflow=10,
     connect_args=_build_connect_args(),
 )
 
