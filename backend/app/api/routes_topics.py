@@ -54,11 +54,16 @@ class ArticleInCluster(BaseModel):
 
 
 class ClusterDetail(ClusterBase):
-    """Detailed cluster information with articles."""
+    """Detailed cluster information with articles and optional AI-generated summary."""
 
     articles: list[ArticleInCluster] = Field(
         default_factory=list, description="Articles in this cluster"
     )
+    summary_md: str | None = Field(None, description="AI-generated factual summary (Markdown)")
+    bias_analysis_md: str | None = Field(None, description="Analysis of editorial angles and biases (Markdown)")
+    timeline_md: str | None = Field(None, description="Chronological timeline of events (Markdown)")
+    summary_version: int | None = Field(None, description="Version number of the summary")
+    summary_generated_at: datetime | None = Field(None, description="When the summary was generated")
 
 
 class TopicsListResponse(BaseModel):
@@ -191,6 +196,33 @@ async def get_topic_detail(
         for row in article_rows
     ]
 
+    # Get the active summary for this cluster, if it exists
+    summary_query = text("""
+        SELECT 
+            summary_md,
+            bias_analysis_md,
+            timeline_md,
+            version,
+            generated_at
+        FROM cluster_summaries
+        WHERE cluster_id = :cluster_id AND is_active = true
+        LIMIT 1
+    """)
+    
+    summary_result = await db.execute(summary_query, {"cluster_id": cluster_id})
+    summary_row = summary_result.fetchone()
+    
+    # Build response with optional summary fields
+    summary_fields = {}
+    if summary_row:
+        summary_fields = {
+            "summary_md": summary_row.summary_md,
+            "bias_analysis_md": summary_row.bias_analysis_md,
+            "timeline_md": summary_row.timeline_md,
+            "summary_version": summary_row.version,
+            "summary_generated_at": summary_row.generated_at,
+        }
+
     return ClusterDetail(
         id=cluster_row.id,
         run_id=cluster_row.run_id,
@@ -199,4 +231,5 @@ async def get_topic_detail(
         window_end=cluster_row.window_end,
         created_at=cluster_row.created_at,
         articles=articles,
+        **summary_fields,
     )

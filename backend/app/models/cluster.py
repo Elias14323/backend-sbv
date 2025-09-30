@@ -181,10 +181,63 @@ class ArticleCluster(Base):
     article: Mapped["Article"] = relationship(back_populates="cluster_assignments")
 
 
+class ClusterSummary(Base):
+    """Stores AI-generated summaries and bias analysis for clusters."""
+
+    __tablename__ = "cluster_summaries"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    cluster_id: Mapped[int] = mapped_column(
+        ForeignKey("clusters.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("cluster_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    summarizer_engine: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default="mistral-large-latest",
+    )
+    engine_version: Mapped[str | None] = mapped_column(Text)
+    lang: Mapped[str] = mapped_column(Text, nullable=False, server_default="en")
+    summary_md: Mapped[str | None] = mapped_column(Text)
+    bias_analysis_md: Mapped[str | None] = mapped_column(Text)
+    timeline_md: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default="false",
+    )
+    generation_metadata: Mapped[dict | None] = mapped_column(
+        JSONB,
+        server_default=text("'{}'::jsonb"),
+    )
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "cluster_id",
+            "version",
+            name="uq_cluster_summaries_cluster_version",
+        ),
+    )
+
+    cluster: Mapped[Cluster] = relationship()
+    run: Mapped[ClusterRun] = relationship()
+
+
 __all__ = [
     "ArticleCluster",
     "ArticleEmbedding",
     "Cluster",
     "ClusterRun",
+    "ClusterSummary",
     "EmbeddingSpace",
 ]

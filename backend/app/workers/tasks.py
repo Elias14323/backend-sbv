@@ -512,6 +512,42 @@ async def _embed_and_cluster_article_async(article_id: int) -> dict[str, Any]:
         session.add(assignment)
         
         await session.commit()
+        
+        # 6. Check if cluster has enough articles to trigger summary generation
+        from sqlalchemy import func
+        from app.models.cluster import ClusterSummary
+        
+        article_count_result = await session.execute(
+            select(func.count(ArticleCluster.article_id))
+            .where(ArticleCluster.cluster_id == assigned_cluster_id)
+        )
+        article_count = article_count_result.scalar() or 0
+        
+        # Trigger summary if cluster has 3+ articles and no active summary yet
+        if article_count >= 3:
+            # Check if active summary exists
+            existing_summary_result = await session.execute(
+                select(ClusterSummary)
+                .where(
+                    ClusterSummary.cluster_id == assigned_cluster_id,
+                    ClusterSummary.is_active == True,  # noqa: E712
+                )
+                .limit(1)
+            )
+            existing_summary = existing_summary_result.scalar_one_or_none()
+            
+            if not existing_summary:
+                logger.info(
+                    f"Cluster {assigned_cluster_id} reached {article_count} articles, "
+                    "triggering summary generation"
+                )
+                # Trigger summarize_cluster task asynchronously
+                summarize_cluster.delay(cluster_id=assigned_cluster_id)
+            else:
+                logger.debug(
+                    f"Cluster {assigned_cluster_id} has {article_count} articles "
+                    "but summary already exists"
+                )
 
     logger.info(
         "Article embedded and clustered",
@@ -527,3 +563,123 @@ async def _embed_and_cluster_article_async(article_id: int) -> dict[str, Any]:
         "space_id": space_id,
         "cluster_id": assigned_cluster_id,
     }
+
+
+@app.task(name="tasks.summarize_cluster")
+def summarize_cluster(cluster_id: int) -> dict[str, Any]:
+    """
+    Generate AI summary, bias analysis, and timeline for a cluster.
+    
+    This is a synchronous Celery task that wraps an async implementation.
+    
+    Args:
+        cluster_id: ID of the cluster to summarize
+        
+    Returns:
+        Dictionary with status and summary ID
+    """
+    return asyncio.run(_summarize_cluster_async(cluster_id))
+
+
+async def _summarize_cluster_async(cluster_id: int) -> dict[str, Any]:
+    """
+    Async implementation: fetch articles, generate summary via Mistral, save to DB.
+    
+    Args:
+        cluster_id: ID of the cluster to summarize
+        
+    Returns:
+        Dictionary with status, summary_id, and version
+    """
+    from app.models.cluster import ClusterSummary
+    from app.services.summarize import generate_cluster_summary
+    from sqlalchemy import func
+    
+    logger.info(f"Starting summary generation for cluster_id={cluster_id}")
+    
+    async with AsyncSessionLocal() as session:
+        # 1. Fetch cluster and verify it exists
+        cluster = await session.get(Cluster, cluster_id)
+        if not cluster:
+            logger.error(f"Cluster {cluster_id} not found")
+            return {"status": "error", "message": "Cluster not found"}
+        
+        # 2. Fetch all articles in this cluster
+        stmt = (
+            select(Article)
+            .join(ArticleCluster, ArticleCluster.article_id == Article.id)
+            .where(ArticleCluster.cluster_id == cluster_id)
+            .order_by(Article.published_at.desc())
+        )
+        result = await session.execute(stmt)
+        articles = list(result.scalars().all())
+        
+        if not articles:
+            logger.warning(f"No articles found for cluster {cluster_id}")
+            return {"status": "error", "message": "No articles in cluster"}
+        
+        logger.info(f"Found {len(articles)} articles for cluster {cluster_id}")
+        
+        # 3. Fetch source information for each article (for prompt context)
+        for article in articles:
+            if article.source_id:
+                source = await session.get(Source, article.source_id)
+                article.source = source
+        
+        # 4. Generate summary via Mistral
+        try:
+            summary_sections = await generate_cluster_summary(articles)
+        except Exception as e:
+            logger.error(f"Failed to generate summary: {e}")
+            return {"status": "error", "message": str(e)}
+        
+        # 5. Determine next version number for this cluster
+        max_version_result = await session.execute(
+            select(func.max(ClusterSummary.version))
+            .where(ClusterSummary.cluster_id == cluster_id)
+        )
+        max_version = max_version_result.scalar()
+        next_version = (max_version or 0) + 1
+        
+        # 6. Deactivate previous summaries
+        await session.execute(
+            text(
+                "UPDATE cluster_summaries SET is_active = false "
+                "WHERE cluster_id = :cluster_id"
+            ),
+            {"cluster_id": cluster_id},
+        )
+        
+        # 7. Create new summary record
+        new_summary = ClusterSummary(
+            cluster_id=cluster_id,
+            run_id=cluster.run_id,
+            version=next_version,
+            summarizer_engine="mistral-large-latest",
+            engine_version=None,  # Could be extracted from API response
+            lang="fr",  # Default to French since prompts are in French
+            summary_md=summary_sections.get("summary_md"),
+            bias_analysis_md=summary_sections.get("bias_analysis_md"),
+            timeline_md=summary_sections.get("timeline_md"),
+            is_active=True,
+            generation_metadata={
+                "article_count": len(articles),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        
+        session.add(new_summary)
+        await session.commit()
+        await session.refresh(new_summary)
+        
+        logger.info(
+            f"Summary generated for cluster {cluster_id}, "
+            f"version {next_version}, summary_id={new_summary.id}"
+        )
+        
+        return {
+            "status": "success",
+            "summary_id": new_summary.id,
+            "version": next_version,
+            "cluster_id": cluster_id,
+        }
