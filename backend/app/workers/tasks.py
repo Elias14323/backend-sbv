@@ -227,7 +227,11 @@ async def process_article_url(url: str, source_id: int) -> dict[str, Any]:
             extra={"source_id": source_id, "url": url, "article_id": created_id},
         )
 
+    # Trigger embedding & clustering
     embed_and_cluster_article.delay(article_id=created_id)
+    
+    # Trigger search indexing
+    index_article_in_search.delay(article_id=created_id)
 
     return {"status": "stored", "article_id": created_id}
 
@@ -924,3 +928,45 @@ async def _detect_events_async() -> dict[str, Any]:
             "events_detected": events_detected,
             "timestamp": timestamp.isoformat(),
         }
+
+
+@app.task(name="tasks.index_article_in_search", bind=True)
+def index_article_in_search(self, article_id: int) -> dict[str, Any]:
+    """Index an article in Meilisearch for full-text search."""
+    
+    return asyncio.run(_index_article_in_search_async(article_id))
+
+
+async def _index_article_in_search_async(article_id: int) -> dict[str, Any]:
+    """Async implementation of article indexing in Meilisearch."""
+    
+    from app.core.meili import index_article
+    
+    async with AsyncSessionLocal() as session:
+        # Fetch article
+        result = await session.execute(
+            select(Article).where(Article.id == article_id)
+        )
+        article = result.scalar_one_or_none()
+        
+        if article is None:
+            logger.warning(f"Article {article_id} not found for indexing")
+            return {"status": "not_found", "article_id": article_id}
+        
+        # Prepare data for indexing
+        article_data = {
+            "id": article.id,
+            "title": article.title,
+            "text_content": article.text_content,
+            "lang": article.lang,
+            "source_id": article.source_id,
+            "published_at": article.published_at,
+        }
+        
+        try:
+            await index_article(article_data)
+            logger.info(f"Indexed article {article_id} in Meilisearch")
+            return {"status": "indexed", "article_id": article_id}
+        except Exception as e:
+            logger.error(f"Failed to index article {article_id}: {e}", exc_info=True)
+            return {"status": "error", "article_id": article_id, "error": str(e)}

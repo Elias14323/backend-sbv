@@ -19,3 +19,6 @@
 *.crt
 *.pem
 *.key
+
+# Meilisearch data
+data.ms/

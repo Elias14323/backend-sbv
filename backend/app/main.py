@@ -8,8 +8,9 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_stream, routes_topics
+from app.api import routes_search, routes_stream, routes_topics
 from app.core.config import settings
+from app.core.meili import setup_articles_index
 
 
 @asynccontextmanager
@@ -17,6 +18,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events."""
     # Startup
     print("🚀 Starting Backend SBV API...")
+    
+    # Initialize Meilisearch index
+    try:
+        await setup_articles_index()
+        print("✅ Meilisearch index configured")
+    except Exception as e:
+        print(f"⚠️  Meilisearch initialization failed: {e}")
+    
     yield
     # Shutdown
     print("👋 Shutting down Backend SBV API...")
@@ -41,6 +50,7 @@ app.add_middleware(
 # Include routers
 app.include_router(routes_topics.router, prefix="/api/v1")
 app.include_router(routes_stream.router, prefix="/api/v1")
+app.include_router(routes_search.router, prefix="/api/v1")
 
 
 @app.get("/")

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
     mistral_api_key: str
+    meili_host: str = "http://localhost:7700"
+    meili_api_key: str = "devMasterKey123"
 
 
 @lru_cache(maxsize=1)
