@@ -109,11 +109,14 @@ async def _process_article_url_async(url: str, source_id: int) -> dict[str, Any]
     html = response.text
 
     try:
+        # trafilatura 2.0+ changed API: output_format instead of json_output
+        # with_metadata=True includes title, author, date, etc.
         extracted = trafilatura.extract(
             html,
             url=url,
             include_comments=False,
-            json_output=True,
+            output_format="json",
+            with_metadata=True,
         )
     except Exception as exc:  # pragma: no cover - extraction rarely raises
         logger.error(
@@ -174,7 +177,14 @@ async def _process_article_url_async(url: str, source_id: int) -> dict[str, Any]
         published_at = parsed
         break
 
-    simhash_value = int(Simhash(text_content, f=64).value)
+    # Convert simhash to signed int64 to fit PostgreSQL's BIGINT range
+    simhash_raw = int(Simhash(text_content, f=64).value)
+    # Convert unsigned to signed int64 if needed
+    if simhash_raw >= 2**63:
+        simhash_value = simhash_raw - 2**64
+    else:
+        simhash_value = simhash_raw
+    
     content_hash = hashlib.blake2b(
         text_content.encode("utf-8"),
         digest_size=8,

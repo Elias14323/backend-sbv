@@ -27,6 +27,7 @@ pgvector = "^0.4.1"
 nest-asyncio = "^1.6.0"
 sse-starlette = "^3.0.2"
 meilisearch-python-async = "^1.8.1"
+psycopg = {extras = ["binary", "pool"], version = "^3.2.10"}
 
 [build-system]
 requires = ["poetry-core>=1.8.0"]

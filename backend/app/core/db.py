@@ -7,15 +7,16 @@ import ssl
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
 
 def _build_connect_args(db_url: str | None = None) -> dict[str, Any]:
-    """Build connection arguments with a custom SSL context that trusts
-    the Supabase CA certificate.
+    """Build connection arguments with SSL for psycopg driver.
     
     Args:
         db_url: Database connection URL (optional, for compatibility)
@@ -27,12 +28,7 @@ def _build_connect_args(db_url: str | None = None) -> dict[str, Any]:
     url_to_check = db_url or settings.database_url
     if "localhost" in url_to_check or "127.0.0.1" in url_to_check:
         # Local database - no SSL
-        return {
-            "ssl": False,
-            "statement_cache_size": 0,
-            "timeout": 10,
-            "command_timeout": 30,
-        }
+        return {}
     
     # Build the path to the certificate (at backend root) for remote DB
     backend_root = Path(__file__).resolve().parents[2]
@@ -46,21 +42,17 @@ def _build_connect_args(db_url: str | None = None) -> dict[str, Any]:
 
     ssl_context = ssl.create_default_context(cafile=str(cert_path))
     
-    # Disable prepared statement cache for Supabase Transaction Pooler compatibility
-    # (pgbouncer in transaction mode doesn't support prepared statements)
-    return {
-        "ssl": ssl_context,
-        "statement_cache_size": 0,
-        "timeout": 10,  # Connection timeout in seconds
-        "command_timeout": 30,  # Query timeout in seconds
-    }
+    # psycopg3 uses conninfo string for SSL parameters
+    # Return an empty dict and rely on URL parameters instead
+    return {}
 
 
 async_engine = create_async_engine(
     settings.database_url,
+    # Use standard connection pooling (psycopg handles pgbouncer well)
     pool_pre_ping=True,
     pool_recycle=3600,  # Recycle connections after 1 hour
-    pool_size=5,  # Limit concurrent connections
+    pool_size=5,
     max_overflow=10,
     connect_args=_build_connect_args(),
 )
