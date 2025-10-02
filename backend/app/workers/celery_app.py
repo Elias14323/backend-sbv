@@ -28,6 +28,22 @@ celery_app.conf.update(
     worker_max_tasks_per_child=1000,
 )
 
+# Celery Beat schedule configuration
+celery_app.conf.beat_schedule = {
+    # Ingest all sources every 15 minutes
+    "ingest-all-sources-every-15-minutes": {
+        "task": "tasks.ingest_all_sources",
+        "schedule": 900.0,  # 15 minutes in seconds
+        "options": {"expires": 600},  # Task expires after 10 minutes if not picked up
+    },
+    # Calculate trends every 5 minutes
+    "calculate-trends-every-5-minutes": {
+        "task": "tasks.calculate_trends",
+        "schedule": 300.0,  # 5 minutes in seconds
+        "options": {"expires": 240},  # Task expires after 4 minutes if not picked up
+    },
+}
+
 # Make tasks discoverable
 celery_app.autodiscover_tasks(["app.workers"])
 

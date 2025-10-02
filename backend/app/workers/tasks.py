@@ -74,10 +74,15 @@ async def _get_or_create_embedding_space(session: AsyncSession) -> EmbeddingSpac
     return space
 
 
-@app.task(name="tasks.process_article_url")
-async def process_article_url(url: str, source_id: int) -> dict[str, Any]:
+@app.task(name="tasks.process_article_url", bind=True)
+def process_article_url(self, url: str, source_id: int) -> dict[str, Any]:
     """Fetch, normalize, dedupe, and persist an individual article."""
+    return asyncio.run(_process_article_url_async(url, source_id))
 
+
+async def _process_article_url_async(url: str, source_id: int) -> dict[str, Any]:
+    """Async implementation of article processing."""
+    
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(15.0),
@@ -236,10 +241,15 @@ async def process_article_url(url: str, source_id: int) -> dict[str, Any]:
     return {"status": "stored", "article_id": created_id}
 
 
-@app.task(name="tasks.ingest_source")
-async def ingest_source(source_id: int) -> dict[str, Any]:
+@app.task(name="tasks.ingest_source", bind=True)
+def ingest_source(self, source_id: int) -> dict[str, Any]:
     """Fetch a source feed, parse entries, and enqueue article processing tasks."""
+    return asyncio.run(_ingest_source_async(source_id))
 
+
+async def _ingest_source_async(source_id: int) -> dict[str, Any]:
+    """Async implementation of source ingestion."""
+    
     async with AsyncSessionLocal() as session:
         source = await _fetch_source(session, source_id)
         if source is None:
@@ -310,6 +320,50 @@ async def ingest_source(source_id: int) -> dict[str, Any]:
         )
 
         return {"status": "ok", "entries": len(entries)}
+
+
+@app.task(name="tasks.ingest_all_sources", bind=True)
+def ingest_all_sources(self) -> dict[str, Any]:
+    """Meta-task that triggers ingestion for all active sources."""
+    return asyncio.run(_ingest_all_sources_async())
+
+
+async def _ingest_all_sources_async() -> dict[str, Any]:
+    """Async implementation of batch source ingestion."""
+    
+    from celery import current_app
+    
+    async with AsyncSessionLocal() as session:
+        # Fetch all sources
+        result = await session.execute(select(Source))
+        sources = result.scalars().all()
+        
+        if not sources:
+            logger.warning("No sources found to ingest")
+            return {"status": "no_sources", "triggered": 0}
+        
+        # Trigger ingestion for each source
+        # Note: we need to use the synchronous API since we're in an async context
+        triggered = 0
+        for source in sources:
+            try:
+                # Use current_app.send_task to avoid async issues
+                current_app.send_task(
+                    "tasks.ingest_source",
+                    kwargs={"source_id": source.id}
+                )
+                triggered += 1
+                logger.debug(f"Triggered ingestion for source {source.id}: {source.name}")
+            except Exception as e:
+                logger.error(f"Failed to trigger ingestion for source {source.id}: {e}")
+        
+        logger.info(f"Batch ingestion triggered for {triggered}/{len(sources)} sources")
+        
+        return {
+            "status": "triggered",
+            "total_sources": len(sources),
+            "triggered": triggered,
+        }
 
 
 @app.task(name="tasks.embed_and_cluster_article")
@@ -780,6 +834,11 @@ async def _calculate_trends_async() -> dict[str, Any]:
         await session.commit()
         
         logger.info(f"Calculated metrics for {metrics_calculated} clusters")
+        
+        # Chain: trigger event detection after metrics are calculated
+        if metrics_calculated > 0:
+            detect_events.delay()
+            logger.info("Triggered event detection task")
         
         return {
             "status": "success",

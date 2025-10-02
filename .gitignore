@@ -22,3 +22,6 @@
 
 # Meilisearch data
 data.ms/
+
+# Celery Beat schedule
+celerybeat-schedule.db
